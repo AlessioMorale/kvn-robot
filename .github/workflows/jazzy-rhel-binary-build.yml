@@ -1,0 +1,33 @@
+name: Jazzy RHEL Binary Build
+on:
+  workflow_dispatch:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    # Run every day to detect flakiness and broken dependencies
+    - cron: '03 1 * * *'
+
+
+jobs:
+  jazzy_rhel_binary:
+    name: Jazzy RHEL binary build
+    runs-on: ubuntu-latest
+    env:
+      ROS_DISTRO: jazzy
+    container: ghcr.io/ros-controls/ros:jazzy-rhel
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: src/kvn_robot
+      - run: |
+          rosdep update
+          rosdep install -iy --from-path src/kvn_robot
+          source /opt/ros/${{ env.ROS_DISTRO }}/setup.bash
+          colcon build
+          colcon test

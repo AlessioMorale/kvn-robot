@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="kvn_rover">
+
+  <!-- Use this if parameters are set from the launch file, otherwise delete -->
+  <xacro:arg name="prefix" default="" />
+
+  <xacro:arg name="use_mock_hardware" default="false" />
+  <xacro:arg name="mock_sensor_commands" default="false" />
+  <xacro:arg name="sim_gazebo" default="false" />
+  <xacro:arg name="simulation_controllers" default="" />
+
+  <xacro:include filename="$(find kvn_robot_description)/urdf/kvn_rover/kvn_rover_macro.xacro" />
+  <xacro:include
+    filename="$(find kvn_robot_description)/urdf/kvn_rover/kvn_rover_macro.ros2_control.xacro" />
+  <xacro:property name="props_yaml" value="$(find kvn_robot_description)/config/robot_config.yaml" />
+  <xacro:property name="robot_props" value="${xacro.load_yaml(props_yaml)}" />
+
+  <!-- Load robot's macro with parameters -->
+  <!-- set prefix if multiple robots are used -->
+  <xacro:kvn_rover prefix="$(arg prefix)" robot_props="${robot_props}" />
+
+  <xacro:kvn_rover_ros2_control
+    name="kvn_rover"
+    prefix="$(arg prefix)"
+    use_mock_hardware="$(arg use_mock_hardware)"
+    mock_sensor_commands="$(arg mock_sensor_commands)"
+    sim_gazebo="$(arg sim_gazebo)"
+    simulation_controllers="$(arg simulation_controllers)" />
+
+</robot>

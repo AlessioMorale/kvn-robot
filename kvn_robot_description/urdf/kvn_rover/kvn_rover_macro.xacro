@@ -3,20 +3,20 @@
 
   <xacro:include filename="$(find kvn_robot_description)/urdf/common/inertials.xacro" />
   <xacro:include filename="$(find kvn_robot_description)/urdf/common/materials.xacro" />
-	
-	<xacro:arg name="camera_name" default="oak" />
-	<xacro:arg name="camera_model" default="OAK-D-LITE" />
-	<xacro:arg name="base_frame" default="oak-d_frame" />
-	<xacro:arg name="parent_frame" default="camera_attachment_link" />
-	<xacro:arg name="cam_pos_x" default="0.0" />
-	<xacro:arg name="cam_pos_y" default="0.0" />
-	<xacro:arg name="cam_pos_z" default="0.0" />
-	<xacro:arg name="cam_roll" default="0.0" />
-	<xacro:arg name="cam_pitch" default="0.0" />
-	<xacro:arg name="cam_yaw" default="0.0" />
-	<xacro:arg name="rs_compat" default="false" />
 
-	<xacro:include filename="$(find depthai_descriptions)/urdf/include/depthai_macro.urdf.xacro" />
+  <xacro:arg name="camera_name" default="oak" />
+  <xacro:arg name="camera_model" default="OAK-D-LITE" />
+  <xacro:arg name="base_frame" default="oak-d_frame" />
+  <xacro:arg name="parent_frame" default="camera_attachment_link" />
+  <xacro:arg name="cam_pos_x" default="0.0" />
+  <xacro:arg name="cam_pos_y" default="0.0" />
+  <xacro:arg name="cam_pos_z" default="0.0" />
+  <xacro:arg name="cam_roll" default="0.0" />
+  <xacro:arg name="cam_pitch" default="0.0" />
+  <xacro:arg name="cam_yaw" default="0.0" />
+  <xacro:arg name="rs_compat" default="false" />
+
+  <xacro:include filename="$(find depthai_descriptions)/urdf/include/depthai_macro.urdf.xacro" />
 
   <!-- Wheels -->
   <xacro:macro name="wheel" params="prefix name x_off y_off z_off wheel_radius wheel_width">
@@ -42,14 +42,25 @@
   <xacro:macro name="kvn_rover" params="prefix robot_props">
     <!-- Define robot constants -->
     <link name="base_link">
-      <visual>
+      <collision>
         <geometry>
-          <box size="${robot_props['robot']['base_length']} ${robot_props['robot']['base_width']} ${robot_props['robot']['base_height']}" />
+          <box
+            size="${robot_props['robot']['base_length']} ${robot_props['robot']['base_width']} ${robot_props['robot']['base_height']}" />
         </geometry>
-        <material name="Gray">
-          <color rgba="0.3 0.3 0.3 1" />
-        </material>
-        <origin xyz="0.0 0.0 ${robot_props['robot']['base_z_off'] + robot_props['robot']['base_height'] / 2}" />
+        <origin
+          xyz="0.0 0.0 ${robot_props['robot']['base_z_off'] + robot_props['robot']['base_height'] / 2}" />
+      </collision>
+      <visual>
+        <!-- <origin xyz="${0.164/2-0.03} ${0.096/2} ${0.0915/2}" rpy="0 0 ${pi}" /> -->
+        <origin xyz="${0.164/2-0.03} ${0.096/2+0.013} ${0.01+robot_props['robot']['base_z_off']}"
+          rpy="0 0 ${pi}" />
+        <geometry>
+          <mesh filename="package://kvn_robot_description/meshes/kvn_rover/visual/kvn_body.stl"
+            scale="1 1 1" />
+          <material name="green">
+            <color rgba="0.1 0.4 0.1 1" />
+          </material>
+        </geometry>
       </visual>
     </link>
     <!-- Robot Footprint -->
@@ -64,40 +75,72 @@
     <joint name="camera_joint" type="fixed">
       <parent link="base_link" />
       <child link="camera_attachment_link" />
-      <origin xyz="${robot_props['robot']['camera_pos_x']} ${robot_props['robot']['camera_pos_y']} ${robot_props['robot']['camera_pos_z']}" rpy="0 ${robot_props['robot']['camera_pitch']} 0" />
+      <origin
+        xyz="${robot_props['robot']['camera_pos_x']} ${robot_props['robot']['camera_pos_y']} ${robot_props['robot']['camera_pos_z']}"
+        rpy="0 ${robot_props['robot']['camera_pitch']} 0" />
     </joint>
 
     <link name="lidar_attachment_link">
-      <visual>
+      <collision>
         <geometry>
-          <cylinder radius="0.025" length="0.03"/>
+          <cylinder radius="0.025" length="0.03" />
         </geometry>
         <material name="Black">
           <color rgba="0.0 0.0 0.0 1" />
         </material>
         <origin xyz="0.0 0.0 0.0" />
+      </collision>
+      <visual>
+        <!-- <origin xyz="${0.164/2-0.03} ${0.096/2} ${0.0915/2}" rpy="0 0 ${pi}" /> -->
+        <origin xyz="0 0 -0.033" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://kvn_robot_description/meshes/kvn_rover/visual/lidar_c1m1.stl"
+            scale="1 1 1" />
+          <material name="Black">
+            <color rgba="0.0 0.0 0.0 1" />
+          </material>
+        </geometry>
       </visual>
+
     </link>
     <joint name="lidar_joint" type="fixed">
       <parent link="base_link" />
       <child link="lidar_attachment_link" />
-      <origin xyz="${robot_props['robot']['lidar_pos_x']} ${robot_props['robot']['lidar_pos_y']} ${robot_props['robot']['lidar_pos_z']}" rpy="0 0 0" />
+      <origin
+        xyz="${robot_props['robot']['lidar_pos_x']} ${robot_props['robot']['lidar_pos_y']} ${robot_props['robot']['lidar_pos_z']}"
+        rpy="0 0 ${-pi/2}" />
     </joint>
 
-	<xacro:depthai_camera camera_name="$(arg camera_name)" parent="$(arg parent_frame)"
-		camera_model="$(arg camera_model)" base_frame="$(arg base_frame)"
-		cam_pos_x="$(arg cam_pos_x)" cam_pos_y="$(arg cam_pos_y)" cam_pos_z="$(arg cam_pos_z)"
-		cam_roll="$(arg cam_roll)" cam_pitch="$(arg cam_pitch)" cam_yaw="$(arg cam_yaw)"
-		rs_compat="$(arg rs_compat)" />
+    <xacro:depthai_camera camera_name="$(arg camera_name)" parent="$(arg parent_frame)"
+      camera_model="$(arg camera_model)" base_frame="$(arg base_frame)"
+      cam_pos_x="$(arg cam_pos_x)" cam_pos_y="$(arg cam_pos_y)" cam_pos_z="$(arg cam_pos_z)"
+      cam_roll="$(arg cam_roll)" cam_pitch="$(arg cam_pitch)" cam_yaw="$(arg cam_yaw)"
+      rs_compat="$(arg rs_compat)" />
 
     <!-- Wheels -->
-    <xacro:wheel prefix="${prefix}" name="front_left" x_off="${robot_props['robot']['wheel_front_x_off']}" y_off="${robot_props['robot']['wheel_left_y_off']-robot_props['robot']['wheel_width']/2}"
-      z_off="${robot_props['robot']['wheel_z_off']}" wheel_radius="${robot_props['robot']['wheel_radius']}" wheel_width="${robot_props['robot']['wheel_width']}" />
-    <xacro:wheel prefix="${prefix}" name="front_right" x_off="${robot_props['robot']['wheel_front_x_off']}" y_off="${robot_props['robot']['wheel_right_y_off']+robot_props['robot']['wheel_width']/2}"
-      z_off="${robot_props['robot']['wheel_z_off']}" wheel_radius="${robot_props['robot']['wheel_radius']}" wheel_width="${robot_props['robot']['wheel_width']}" />
-    <xacro:wheel prefix="${prefix}" name="back_left" x_off="${robot_props['robot']['wheel_back_x_off']}" y_off="${robot_props['robot']['wheel_left_y_off']-robot_props['robot']['wheel_width']/2}"
-      z_off="${robot_props['robot']['wheel_z_off']}" wheel_radius="${robot_props['robot']['wheel_radius']}" wheel_width="${robot_props['robot']['wheel_width']}" />
-    <xacro:wheel prefix="${prefix}" name="back_right" x_off="${robot_props['robot']['wheel_back_x_off']}" y_off="${robot_props['robot']['wheel_right_y_off']+robot_props['robot']['wheel_width']/2}"
-      z_off="${robot_props['robot']['wheel_z_off']}"  wheel_radius="${robot_props['robot']['wheel_radius']}" wheel_width="${robot_props['robot']['wheel_width']}" />
+    <xacro:wheel prefix="${prefix}" name="front_left"
+      x_off="${robot_props['robot']['wheel_front_x_off']}"
+      y_off="${robot_props['robot']['wheel_left_y_off']-robot_props['robot']['wheel_width']/2}"
+      z_off="${robot_props['robot']['wheel_z_off']}"
+      wheel_radius="${robot_props['robot']['wheel_radius']}"
+      wheel_width="${robot_props['robot']['wheel_width']}" />
+    <xacro:wheel prefix="${prefix}" name="front_right"
+      x_off="${robot_props['robot']['wheel_front_x_off']}"
+      y_off="${robot_props['robot']['wheel_right_y_off']+robot_props['robot']['wheel_width']/2}"
+      z_off="${robot_props['robot']['wheel_z_off']}"
+      wheel_radius="${robot_props['robot']['wheel_radius']}"
+      wheel_width="${robot_props['robot']['wheel_width']}" />
+    <xacro:wheel prefix="${prefix}" name="back_left"
+      x_off="${robot_props['robot']['wheel_back_x_off']}"
+      y_off="${robot_props['robot']['wheel_left_y_off']-robot_props['robot']['wheel_width']/2}"
+      z_off="${robot_props['robot']['wheel_z_off']}"
+      wheel_radius="${robot_props['robot']['wheel_radius']}"
+      wheel_width="${robot_props['robot']['wheel_width']}" />
+    <xacro:wheel prefix="${prefix}" name="back_right"
+      x_off="${robot_props['robot']['wheel_back_x_off']}"
+      y_off="${robot_props['robot']['wheel_right_y_off']+robot_props['robot']['wheel_width']/2}"
+      z_off="${robot_props['robot']['wheel_z_off']}"
+      wheel_radius="${robot_props['robot']['wheel_radius']}"
+      wheel_width="${robot_props['robot']['wheel_width']}" />
   </xacro:macro>
 </robot>

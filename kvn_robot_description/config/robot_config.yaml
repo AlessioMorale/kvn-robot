@@ -1,7 +1,7 @@
 robot:
-  base_length: 0.158
+  base_length: 0.164
   base_width: 0.096
-  base_height: 0.042
+  base_height: 0.046
   base_z_off: 0.02
   wheel_radius: 0.0325
   wheel_width: 0.02
@@ -10,10 +10,10 @@ robot:
   wheel_back_x_off: -0.05
   wheel_left_y_off: -0.05
   wheel_right_y_off: 0.05
-  camera_pos_x: 0.075
+  camera_pos_x: 0.074
   camera_pos_y: 0.0
-  camera_pos_z: 0.09
+  camera_pos_z: 0.10
   camera_pitch: 0.0
-  lidar_pos_x: 0.02
-  lidar_pos_y: -0.015
-  lidar_pos_z: 0.1
+  lidar_pos_x: 0.03
+  lidar_pos_y: -0.004
+  lidar_pos_z: 0.115

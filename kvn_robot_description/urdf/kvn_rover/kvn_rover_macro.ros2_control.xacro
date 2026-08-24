@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro">
   <xacro:macro name="ds210_joint" params="name id">
-      <joint name="£{name}">
+      <joint name="${name}">
         <command_interface name="velocity"/>
         <command_interface name="effort"/>
         <state_interface name="velocity"/>
@@ -32,10 +32,10 @@
           <param name="device">/dev/ttyAMA0</param>
         </xacro:unless>
       </hardware>
-      <xacro:ds210_joint name="${prefix}joint1" id="16"/>
-      <xacro:ds210_joint name="${prefix}joint2" id="17"/>
-      <xacro:ds210_joint name="${prefix}joint3" id="18"/>
-      <xacro:ds210_joint name="${prefix}joint4" id="19"/>
+      <xacro:ds210_joint name="${prefix}front_left_joint" id="16"/>
+      <xacro:ds210_joint name="${prefix}front_right_joint" id="17"/>
+      <xacro:ds210_joint name="${prefix}back_left_joint" id="18"/>
+      <xacro:ds210_joint name="${prefix}back_right_joint" id="19"/>
     </ros2_control>
 
     <xacro:if value="$(arg sim_gazebo)">

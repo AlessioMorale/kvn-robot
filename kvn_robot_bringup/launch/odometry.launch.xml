@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<launch>
+  <description>Launch the odometry node for KVN rover</description>
+
+  <!-- Odometry node - fuses wheel and IMU data for pose estimation -->
+  <node pkg="kvn_odometry" exec="odometry_node" name="odometry_node">
+    <!-- Kinematic parameters (should match controller) -->
+    <param name="wheel_radius" value="0.048" />
+    <param name="track_width" value="0.205" />
+    
+    <!-- Frame configuration -->
+    <param name="base_frame_id" value="base_link" />
+    <param name="odom_frame_id" value="odom" />
+    
+    <!-- Enable IMU fusion for better yaw rate estimation -->
+    <param name="use_imu_yaw" value="true" />
+    
+    <!-- Update rate -->
+    <param name="update_rate" value="50.0" />
+  </node>
+
+</launch>

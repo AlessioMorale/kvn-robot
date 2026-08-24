@@ -1,0 +1,172 @@
+# Extended Kalman Filter Sensor Fusion using Fuse Framework
+# Fuses two independent sensors (wheel odometry + IMU gyro) using factor graphs
+#
+# Architecture: 
+#   Odometry (50 Hz) + IMU (100 Hz) -> Factor Graph -> Ceres Optimization -> /odom_ekf
+#
+# Variables: Pose2D (x, y, yaw) at each timestamp with unicycle kinematics
+# Constraints:
+#   - Odometry: Incremental pose measurements from wheel encoders
+#   - IMU: Yaw rate measurements from gyroscope
+#   - Motion model: Differential drive kinematic prediction between timestamps
+
+# Enable/disable the entire fusion system
+ekf_enabled: true
+
+# Optimizer settings
+optimizer:
+  # Use Ceres solver for nonlinear least squares optimization
+  type: ceres_optimizer
+  
+  # Optimization frequency (Hz) - run solver at this rate
+  optimization_frequency: 50.0
+  
+  # Maximum time for each optimization cycle (milliseconds)
+  max_solve_time: 100
+  
+  # Number of historical states to keep in the graph for marginalization
+  lag: 10
+  
+  # Loss function reduces effect of outliers
+  loss_function:
+    type: huber
+    parameter: 0.1
+
+# Odometry sensor model (wheel encoders at 50 Hz)
+odometry_2d:
+  enabled: true
+  
+  # ROS topic providing nav_msgs/Odometry
+  topic: /odom
+  
+  # Process this measurement (queue size)
+  queue_size: 10
+  
+  # Measurement noise (uncertainty) - diagonal of R matrix
+  # These are the noise/covariance values for each measurement
+  measurement_noise:
+    # Position noise in meters (x, y) - how much we trust encoder position
+    position: [0.01, 0.01]    # 1 cm std dev per axis
+    # Yaw noise in radians - odometry heading is less reliable
+    yaw: 0.05                  # 0.05 rad = 2.86 degrees std dev
+  
+  # How long to wait for a measurement before considering sensor dead (seconds)
+  max_measurement_covariance: [1000.0, 1000.0, 1000.0]
+  
+  # Advanced: whether to use full covariance from odometry message
+  use_covariance: true
+
+# IMU sensor model (gyroscope at 100 Hz)
+imu_2d:
+  enabled: true
+  
+  # ROS topic providing sensor_msgs/Imu
+  topic: /imu
+  
+  # Process this measurement
+  queue_size: 10
+  
+  # IMU provides: linear acceleration (x, y) and angular velocity (z)
+  # We primarily use angular velocity in 2D
+  
+  # Measurement noise - how much we trust the gyroscope
+  angular_velocity_noise: 0.001  # rad/s std dev - gyros are quite accurate
+  
+  # Linear acceleration noise (we don't use linear accel in 2D, just for robustness)
+  linear_acceleration_noise: [0.1, 0.1]  # m/s^2 std dev
+  
+  # Maximum measurement covariance before measurement is ignored
+  max_angular_velocity: 10.0  # rad/s - ignore measurements beyond this
+
+# Motion model (differential drive kinematics)
+# Connects states at different times using robot kinematics
+unicycle_2d:
+  enabled: true
+  
+  # Process noise (uncertainty in motion model) - diagonal of Q matrix
+  # This represents how much we doubt our kinematic predictions
+  process_noise:
+    # Position process noise - accumulated drift during motion
+    position: [0.001, 0.001]   # m^2 per second of motion
+    # Yaw process noise - heading uncertainty
+    yaw: 0.0001                # rad^2 per second of motion
+  
+  # Velocity process noise - how much velocity can change
+  velocity_noise:
+    linear: [0.01, 0.01]      # (m/s)^2 - velocity change uncertainty
+    angular: 0.001              # (rad/s)^2
+  
+  # Robot kinematic parameters (should match Session 1 values)
+  # If not specified, uses defaults - ideally read from session 1 calibration
+  track_width: 0.205            # meters (from Session 1 tuning)
+  wheel_radius: 0.048           # meters (from Session 1 tuning)
+  
+  # Acceleration limits for validity checks
+  max_linear_acceleration: 5.0   # m/s^2
+  max_angular_acceleration: 5.0  # rad/s^2
+
+# Publisher: output optimized odometry
+odometry_2d_publisher:
+  enabled: true
+  
+  # Name of the published topic (will publish nav_msgs/Odometry)
+  topic: /odom_ekf
+  
+  # Frame IDs for the odometry message
+  world_frame: odom           # Fixed frame (global)
+  base_frame: base_link       # Moving frame (robot)
+  
+  # Publish rate (Hz) - how often to share optimized state
+  publish_frequency: 50.0
+  
+  # Whether to broadcast TF transforms
+  publish_tf: true
+  
+  # Queue size for publishing
+  queue_size: 1
+
+# Initial state estimate
+initial_state:
+  # Starting pose
+  position: [0.0, 0.0]        # [x, y] meters
+  yaw: 0.0                     # radians
+  
+  # Starting velocity
+  velocity: [0.0, 0.0]        # [vx, vy] m/s
+  angular_velocity: 0.0        # rad/s
+  
+  # Initial uncertainty (covariance diagonal)
+  # High values = low confidence in starting position
+  position_uncertainty: [0.1, 0.1]     # meters^2
+  yaw_uncertainty: 0.1                 # radians^2
+  velocity_uncertainty: [0.1, 0.1]     # (m/s)^2
+  angular_velocity_uncertainty: 0.1    # (rad/s)^2
+
+# Tuning guide:
+#
+# **Q Matrix (Process Noise) - Trust motion model?**
+#   - Decrease Q: Trust encoder kinematics predictions more
+#   - Increase Q: Trust sensors more, ignore model drift
+#
+# **R Matrix (Measurement Noise) - Trust sensors?**
+#   - Decrease R: Trust sensor measurements more
+#   - Increase R: Weight predictions more heavily
+#
+# **For KVN rover (from Sessions 1-5):**
+#   - Encoders are reliable at 50 Hz (from Session 2)
+#   - χ parameter tuned in Session 5 (affects accuracy)
+#   - IMU provides stable heading rate (100 Hz)
+#   - Start conservative: trust both equally, tune based on real data
+#
+# **Typical tuning pattern:**
+#   1. Run system with default config
+#   2. Check /odom_ekf vs /odom on 10m straight line
+#   3. If EKF drifts: increase Q (trust sensors more)
+#   4. If EKF lags: decrease Q (trust predictions more)
+#   5. For yaw: primarily tuned via odometry_2d.measurement_noise.yaw
+#   6. Iterate until comfortable with 5-min performance
+#
+# **Performance targets (from Session 6):**
+#   - Yaw drift: < ±0.8° over 5 minutes (vs ±3.5° without EKF)
+#   - Position error: < ±2 cm over 10m (vs ±8 cm without EKF)
+#   - Update latency: < 20 ms per optimization cycle

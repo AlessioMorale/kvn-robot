@@ -1,0 +1,67 @@
+/**
+ * ROS 2 Controller Configuration for Skid-Steer Robot
+ * 
+ * This file defines the controller manager settings and controller configurations
+ * for the 4-wheel skid-steer rover.
+ */
+
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz
+    use_sim_time: false
+
+    # Joint state broadcaster - publishes all joint states
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    # Skid steer controller - maps Twist to 4 wheel velocities
+    skid_steer_controller:
+      type: skid_steer_controller/SkidSteerController
+
+skid_steer_controller:
+  ros__parameters:
+    # Kinematic parameters (in meters)
+    wheel_radius: 0.048
+    track_width: 0.205
+    
+    # Effective track width tuning factor (Session 5)
+    # d_eff = track_width * chi
+    # Typical range: 0.8 - 1.2
+    # 1.0 = nominal (no correction)
+    # < 1.0 = wheels turning too much (turn radius too small)
+    # > 1.0 = wheels not turning enough (turn radius too large)
+    # Tune via spot-turn maneuvers to minimize yaw error
+    chi: 1.0
+    
+    # Command timeout in seconds
+    # If no command received within this time, stop motors
+    cmd_vel_timeout: 1.0
+    
+    # Slip detection parameters (Session 4)
+    # Slip ratio threshold: if |λ| > threshold, wheel pair is considered slipping
+    # λ = (wheel_speed - ground_speed) / ground_speed
+    slip_threshold: 0.2
+    
+    # When one wheel pair slips, reduce the opposite pair by this factor [0.0-1.0]
+    # Default 0.7 = reduce to 70% of commanded velocity (cross-coupling compensation)
+    slip_clamp_factor: 0.7
+    
+    # Timeout for odometry messages (in seconds)
+    # If no odometry received within this time, slip detection is skipped
+    odometry_timeout: 0.5
+
+odometry_node:
+  ros__parameters:
+    # Kinematic parameters (should match skid_steer_controller)
+    wheel_radius: 0.048
+    track_width: 0.205
+    
+    # Frame names for odometry
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    
+    # Update rate in Hz
+    update_rate: 50.0
+    
+    # Use IMU for yaw rate (true) or calculate from wheels (false)
+    use_imu_yaw: true

@@ -1,0 +1,7 @@
+<library path="skid_steer_controller">
+  <class name="skid_steer_controller/SkidSteerController"
+         type="skid_steer_controller::SkidSteerController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>Skid-steer kinematic controller for 4-wheel rovers using ICR model</description>
+  </class>
+</library>

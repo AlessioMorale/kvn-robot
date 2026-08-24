@@ -1,0 +1,96 @@
+ekf_node:
+  ros__parameters:
+    # EKF Enable/Disable
+    ekf_enabled: true
+    use_imu_updates: true
+    max_measurement_gap: 0.5  # seconds - if no input for longer, stop filtering
+    
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # PROCESS NOISE (Q matrix) - Uncertainty in our motion model
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # How much we DOUBT the predicted motion from kinematics
+    # Higher Q = Trust the measurements more, predictions less
+    # Lower Q = Trust predictions more, ignore measurement noise
+    #
+    # Typical tuning: Start conservative (low Q), increase if drift appears
+    
+    # Position uncertainty (meters²)
+    # ~ How much wheel encoders drift when robot moves
+    # 0.001:  Trust encoder predictions highly (good for short-term)
+    # 0.01:   Moderate trust (good for 10-30 second missions)
+    # 0.1:    Low trust, rely more on measurements (good if encoders noisy)
+    process_noise_position: 0.001
+    
+    # Yaw uncertainty (radians²)
+    # ~ How much heading drifts from odometry integration
+    # 0.0001: Trust heading from odometry (typical)
+    # 0.001:  Less trust, sensor measurements will dominate
+    process_noise_yaw: 0.0001
+    
+    # Velocity uncertainty (m/s)²
+    # ~ Assumed acceleration not modeled (typically 0 for rover)
+    # 0.001:  Assume near-zero acceleration (good for rover)
+    # 0.01:   Allow more acceleration variation
+    process_noise_velocity: 0.01
+    
+    # Angular velocity uncertainty (rad/s)²
+    # ~ Assumed angular acceleration not modeled
+    # 0.001: Assume near-zero angular acceleration
+    process_noise_angular_velocity: 0.001
+    
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # MEASUREMENT NOISE (R matrix) - Uncertainty in sensors
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # How much we DOUBT each sensor measurement
+    # Higher R = Less trust in measurement, predict more
+    # Lower R = Trust measurement, update more aggressively
+    #
+    # Typical tuning: Measure sensor accuracy, set R accordingly
+    
+    # Odometry position noise (meters²)
+    # ~ Error in wheel encoder-based position
+    # 0.001:  Very accurate encoders (typical for rovers)
+    # 0.01:   Moderate accuracy (some slip/deformation)
+    # 0.1:    Poor accuracy (loose wheels, worn tires)
+    measurement_noise_odom_position: 0.01
+    
+    # Odometry yaw noise (radians²)
+    # ~ Error in yaw estimation from wheels
+    # 0.01:   Accurate yaw from wheel geometry
+    # 0.05:   Moderate (some wheel slip on yaw)
+    # 0.1:    Poor (high wheel slip)
+    # NOTE: Odometry yaw drifts over time, so we don't trust it as much as position
+    measurement_noise_odom_yaw: 0.05
+    
+    # IMU gyroscope yaw rate noise (rad/s)²
+    # ~ Error in high-frequency yaw rate from gyroscope
+    # 0.0001: Excellent IMU (rare)
+    # 0.001:  Good IMU (typical OAK-D, after calibration)
+    # 0.01:   Budget IMU (noisy but stable relative to wheels)
+    # NOTE: IMU gyro is very good for short-term, so low R
+    measurement_noise_imu_yaw_rate: 0.001
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TUNING GUIDE
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Good starting point:
+#   - Q: Conservative (low values) - trust predictions
+#   - R_odom: Moderate - encoders are decent
+#   - R_imu: Low - gyro is excellent
+#
+# If filter drifts:
+#   - Increase R_odom (trust measurements less)
+#   - Decrease Q (trust predictions more)
+#
+# If filter is sluggish (doesn't follow actual motion):
+#   - Decrease R_* (trust measurements more)
+#   - Increase Q (trust predictions less)
+#
+# Testing procedure:
+#   1. Run robot in straight line 5m, measure error
+#   2. Run robot circle 360°, measure yaw error
+#   3. Adjust Q/R based on which case drifts
+#   4. Re-test to validate improvement
+#
+# ═══════════════════════════════════════════════════════════════════════════════

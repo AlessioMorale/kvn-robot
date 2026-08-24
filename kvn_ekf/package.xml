@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>kvn_ekf</name>
+  <version>0.2.0</version>
+  <description>Multi-sensor fusion using locusrobotics/fuse (odometry + IMU)</description>
+  <maintainer email="alessio@example.com">Alessio Morale</maintainer>
+  <license>MIT</license>
+
+  <author email="alessio@example.com">Alessio Morale</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Fuse framework dependencies -->
+  <depend>fuse_core</depend>
+  <depend>fuse_graphs</depend>
+  <depend>fuse_models</depend>
+  <depend>fuse_optimizers</depend>
+
+  <!-- ROS 2 support -->
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf2_ros</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

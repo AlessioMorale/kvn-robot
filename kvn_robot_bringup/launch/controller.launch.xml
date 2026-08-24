@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<launch>
+  <description>Launch the skid-steer controller with hardware interface</description>
+
+  <!-- Load the robot description -->
+  <arg name="use_mock_hardware" default="false" />
+  <arg name="publish_joints" default="true" />
+
+  <!-- Start robot state publisher -->
+  <node pkg="robot_state_publisher" exec="robot_state_publisher">
+    <param name="robot_description" command="xacro $(find kvn_robot_description)/urdf/kvn_rover.urdf.xacro use_mock_hardware:=$(var use_mock_hardware)" />
+  </node>
+
+  <!-- Start controller manager -->
+  <node pkg="controller_manager" exec="ros2_control_node">
+    <param name="robot_description" command="xacro $(find kvn_robot_description)/urdf/kvn_rover.urdf.xacro use_mock_hardware:=$(var use_mock_hardware)" />
+    <param from="$(find kvn_robot_bringup)/config/controllers.yaml" />
+  </node>
+
+  <!-- Spawn the controllers -->
+  <node pkg="controller_manager" exec="spawner">
+    <arg name="--controller-manager" value="/controller_manager" />
+    <arg name="--controller-manager-timeout" value="20" />
+    <arg name="joint_state_broadcaster" />
+  </node>
+
+  <node pkg="controller_manager" exec="spawner">
+    <arg name="--controller-manager" value="/controller_manager" />
+    <arg name="--controller-manager-timeout" value="20" />
+    <arg name="skid_steer_controller" />
+  </node>
+
+  <!-- Launch odometry node for pose estimation -->
+  <include file="$(find kvn_robot_bringup)/launch/odometry.launch.xml" />
+
+  <!-- Launch joystick to Twist converter if available -->
+  <include file="$(find kvn_robot_bringup)/launch/joy_to_twist.launch.xml" />
+
+</launch>

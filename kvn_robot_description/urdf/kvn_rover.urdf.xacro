@@ -12,6 +12,7 @@
   <xacro:include filename="$(find kvn_robot_description)/urdf/kvn_rover/kvn_rover_macro.xacro" />
   <xacro:include
     filename="$(find kvn_robot_description)/urdf/kvn_rover/kvn_rover_macro.ros2_control.xacro" />
+  <xacro:include filename="$(find kvn_robot_description)/urdf/gazebo/gazebo.xacro" />
   <xacro:property name="props_yaml" value="$(find kvn_robot_description)/config/robot_config.yaml" />
   <xacro:property name="robot_props" value="${xacro.load_yaml(props_yaml)}" />
 

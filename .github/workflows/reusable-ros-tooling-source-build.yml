@@ -39,7 +39,7 @@ jobs:
           package-name:
             kvn_robot_description
             kvn_robot
-            
+
           vcs-repo-file-url: |
             https://raw.githubusercontent.com/ros2/ros2/${{ inputs.ros2_repo_branch }}/ros2.repos
             https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/kvn_robot.${{ inputs.ros_distro }}.repos?token=${{ secrets.GITHUB_TOKEN }}

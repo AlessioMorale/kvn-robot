@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="kvn_rover_gazebo_plugins">
+
+  <!-- 
+    Gazebo plugins for KVN Rover simulation
+    
+    This file contains all sensor and physics plugins for Gazebo simulation.
+    It's included when sim_gazebo=true in the main URDF.
+    
+    Simulated sensors:
+    - 2D LIDAR (Slamtec A1/A2)
+    - IMU (6-axis, accelerometer + gyroscope)
+    - Wheel odometry (from Gazebo physics)
+  -->
+
+  <!-- ============== LIDAR PLUGIN ============== -->
+  <!-- 
+    Simulated 2D LIDAR using Gazebo's GPU Lidar.
+    Mounted on lidar_attachment_link, points up (rotated -90° for scanning)
+    
+    Performance:
+    - Resolution: 0.2° (1800 rays)
+    - Range: 0.2-25 m (matches Slamtec A1M8)
+    - Update rate: 10 Hz
+    - Frame: laser
+  -->
+  <gazebo reference="lidar_attachment_link">
+    <plugin filename="gz-sim-gpu-lidar-system" name="gz::sim::systems::GpuLidar">
+      <!-- Lidar properties -->
+      <vertical_scans>1</vertical_scans>
+      <samples>1800</samples>
+      <min_range>0.2</min_range>
+      <max_range>25.0</max_range>
+      <resolution>0.2</resolution>
+      
+      <!-- Performance tuning -->
+      <horizontal_max_angle>3.14159265</horizontal_max_angle>
+      <horizontal_min_angle>-3.14159265</horizontal_min_angle>
+      
+      <vertical_max_angle>0.0</vertical_max_angle>
+      <vertical_min_angle>0.0</vertical_min_angle>
+      
+      <!-- Update frequency (Hz) -->
+      <update_rate>10</update_rate>
+      
+      <!-- ROS 2 interface -->
+      <frame_id>laser</frame_id>
+      <topic>scan</topic>
+      <enable_metrics>false</enable_metrics>
+    </plugin>
+  </gazebo>
+
+  <!-- ============== IMU PLUGIN ============== -->
+  <!-- 
+    Simulated 6-axis IMU (accelerometer + gyroscope)
+    Mounted on base_link
+    
+    Output: /imu (sensor_msgs/Imu)
+    - Linear acceleration (3-axis)
+    - Angular velocity (3-axis)
+    - Includes realistic noise
+  -->
+  <gazebo reference="base_link">
+    <sensor name="imu_sensor" type="imu">
+      <!-- IMU frame -->
+      <pose>0 0 0.05 0 0 0</pose>
+
+      <!-- Plugin configuration -->
+      <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu">
+        <output_rate>100</output_rate>
+        <frame_id>base_link</frame_id>
+        <topic>imu</topic>
+        
+        <!-- Accelerometer properties -->
+        <accel_x_noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>0.05</stddev>
+        </accel_x_noise>
+        <accel_y_noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>0.05</stddev>
+        </accel_y_noise>
+        <accel_z_noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>0.05</stddev>
+        </accel_z_noise>
+        
+        <!-- Gyroscope properties -->
+        <gyro_x_noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>0.001</stddev>
+        </gyro_x_noise>
+        <gyro_y_noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>0.001</stddev>
+        </gyro_y_noise>
+        <gyro_z_noise type="gaussian">
+          <mean>0.0</mean>
+          <stddev>0.001</stddev>
+        </gyro_z_noise>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <!-- ============== WHEEL COLLISION FRICTION ============== -->
+  <!-- 
+    Gazebo wheel friction properties for skid-steer locomotion
+    Allows realistic skidding and turning behavior
+  -->
+  <gazebo reference="front_left_link">
+    <collision>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.8</mu>
+            <mu2>0.3</mu2>
+            <slip1>0.0</slip1>
+            <slip2>0.0</slip2>
+          </ode>
+        </friction>
+        <contact>
+          <ode>
+            <soft_cfm>0.0</soft_cfm>
+            <soft_erp>0.2</soft_erp>
+            <max_vel>0.0</max_vel>
+            <min_depth>0.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+  </gazebo>
+
+  <gazebo reference="front_right_link">
+    <collision>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.8</mu>
+            <mu2>0.3</mu2>
+            <slip1>0.0</slip1>
+            <slip2>0.0</slip2>
+          </ode>
+        </friction>
+        <contact>
+          <ode>
+            <soft_cfm>0.0</soft_cfm>
+            <soft_erp>0.2</soft_erp>
+            <max_vel>0.0</max_vel>
+            <min_depth>0.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+  </gazebo>
+
+  <gazebo reference="back_left_link">
+    <collision>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.8</mu>
+            <mu2>0.3</mu2>
+            <slip1>0.0</slip1>
+            <slip2>0.0</slip2>
+          </ode>
+        </friction>
+        <contact>
+          <ode>
+            <soft_cfm>0.0</soft_cfm>
+            <soft_erp>0.2</soft_erp>
+            <max_vel>0.0</max_vel>
+            <min_depth>0.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+  </gazebo>
+
+  <gazebo reference="back_right_link">
+    <collision>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.8</mu>
+            <mu2>0.3</mu2>
+            <slip1>0.0</slip1>
+            <slip2>0.0</slip2>
+          </ode>
+        </friction>
+        <contact>
+          <ode>
+            <soft_cfm>0.0</soft_cfm>
+            <soft_erp>0.2</soft_erp>
+            <max_vel>0.0</max_vel>
+            <min_depth>0.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+  </gazebo>
+
+  <!-- ============== BASE LINK PROPERTIES ============== -->
+  <!-- Physical properties for base_link -->
+  <gazebo reference="base_link">
+    <material>Gazebo/Green</material>
+    <collision>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.1</mu>
+            <mu2>0.1</mu2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+  </gazebo>
+
+  <!-- ============== LIDAR ATTACHMENT VISUAL ============== -->
+  <!-- Material for lidar housing in Gazebo -->
+  <gazebo reference="lidar_attachment_link">
+    <material>Gazebo/DarkGrey</material>
+  </gazebo>
+
+</robot>

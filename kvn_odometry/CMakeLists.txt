@@ -15,24 +15,22 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
-set(THIS_PACKAGE_INCLUDE_DEPENDS
-  rclcpp
-  rclcpp_components
-  sensor_msgs
-  nav_msgs
-  geometry_msgs
-  tf2
-  tf2_ros
-  tf2_geometry_msgs
-)
-
 add_executable(odometry_node src/odometry_node.cpp)
 target_compile_features(odometry_node PUBLIC cxx_std_17)
 target_include_directories(odometry_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/kvn_odometry>
 )
-ament_target_dependencies(odometry_node PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS})
+target_link_libraries(odometry_node PUBLIC
+  rclcpp::rclcpp
+  rclcpp_components::component
+  sensor_msgs::sensor_msgs
+  nav_msgs::nav_msgs
+  geometry_msgs::geometry_msgs
+  tf2::tf2
+  tf2_ros::tf2_ros
+  tf2_geometry_msgs::tf2_geometry_msgs
+)
 
 install(TARGETS odometry_node DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)

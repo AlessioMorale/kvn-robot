@@ -81,6 +81,12 @@ private:
   double chi_;                         // Effective track width tuning factor (Session 5)
   double cmd_vel_timeout_;
 
+  /// Acceleration limits
+  double max_linear_acceleration_;
+  double max_angular_acceleration_;
+  double current_v_x_{0.0};
+  double current_omega_z_{0.0};
+
   /// Slip detection parameters (Session 4)
   double slip_threshold_;           // Threshold for slip ratio detection
   double slip_clamp_factor_;        // Reduction factor for clamped wheels

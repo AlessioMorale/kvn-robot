@@ -10,15 +10,13 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
-set(THIS_PACKAGE_INCLUDE_DEPENDS
-  rclcpp
-  sensor_msgs
-  geometry_msgs
-)
-
 add_executable(joy_to_twist_node src/joy_to_twist_node.cpp)
 target_compile_features(joy_to_twist_node PUBLIC cxx_std_17)
-ament_target_dependencies(joy_to_twist_node PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS})
+target_link_libraries(joy_to_twist_node PUBLIC
+  rclcpp::rclcpp
+  sensor_msgs::sensor_msgs
+  geometry_msgs::geometry_msgs
+)
 
 install(TARGETS joy_to_twist_node DESTINATION lib/${PROJECT_NAME})
 

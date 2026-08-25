@@ -8,7 +8,7 @@
 
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/logging.hpp"
-#include "tf2/LinearMath/Quaternion.h"
+#include "tf2/LinearMath/Quaternion.hpp"
 
 namespace kvn_odometry
 {

@@ -50,7 +50,7 @@ The general package structure is the following:
 
 Now, launch description test:
 ```
-ros2 launch kvn_robot_description view_kvn_rover.launch.xml
+ros2 launch kvn_robot_description view_kvn_rover.launch.py
 ```
 or
 ```
@@ -110,7 +110,7 @@ The general package structure is the following:
 
 Now, launch description test:
 ```
-ros2 launch kvn_robot_description view_kvn_rover.launch.xml
+ros2 launch kvn_robot_description view_kvn_rover.launch.py
 ```
 or
 ```

@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro">
-  <xacro:macro name="ds210_joint" params="name id">
+  <xacro:macro name="ds210_joint" params="name id invert:=false">
       <joint name="${name}">
         <command_interface name="velocity"/>
         <command_interface name="effort"/>
         <state_interface name="velocity"/>
         <state_interface name="effort"/>
         <param name="motor_id">${id}</param>
+        <param name="invert">${invert}</param>
     </joint>
   </xacro:macro>
   <xacro:macro name="kvn_rover_ros2_control" params="
@@ -32,10 +33,10 @@
           <param name="device">/dev/ttyAMA0</param>
         </xacro:unless>
       </hardware>
-      <xacro:ds210_joint name="${prefix}front_left_joint" id="16"/>
-      <xacro:ds210_joint name="${prefix}front_right_joint" id="17"/>
-      <xacro:ds210_joint name="${prefix}back_left_joint" id="18"/>
-      <xacro:ds210_joint name="${prefix}back_right_joint" id="19"/>
+      <xacro:ds210_joint name="${prefix}front_left_joint" id="3"/>
+      <xacro:ds210_joint name="${prefix}front_right_joint" id="1" invert="true"/>
+      <xacro:ds210_joint name="${prefix}back_left_joint" id="4"/>
+      <xacro:ds210_joint name="${prefix}back_right_joint" id="2" invert="true"/>
     </ros2_control>
 
     <xacro:if value="$(arg sim_gazebo)">

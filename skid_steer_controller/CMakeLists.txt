@@ -23,14 +23,14 @@ target_include_directories(skid_steer_controller PUBLIC
   $<INSTALL_INTERFACE:include/skid_steer_controller>
 )
 
-ament_target_dependencies(skid_steer_controller PUBLIC
-  controller_interface
-  hardware_interface
-  pluginlib
-  rclcpp
-  geometry_msgs
-  nav_msgs
-  rclcpp_lifecycle
+target_link_libraries(skid_steer_controller PUBLIC
+  controller_interface::controller_interface
+  hardware_interface::hardware_interface
+  pluginlib::pluginlib
+  rclcpp::rclcpp
+  geometry_msgs::geometry_msgs
+  nav_msgs::nav_msgs
+  rclcpp_lifecycle::rclcpp_lifecycle
 )
 
 # Disable boost for pluginlib

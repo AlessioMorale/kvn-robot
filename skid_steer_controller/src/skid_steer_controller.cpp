@@ -47,6 +47,8 @@ controller_interface::CallbackReturn SkidSteerController::on_init()
     track_width_ = node->declare_parameter<double>("track_width", 0.205);
     chi_ = node->declare_parameter<double>("chi", 1.0);  // Session 5: track width tuning
     cmd_vel_timeout_ = node->declare_parameter<double>("cmd_vel_timeout", 1.0);
+    max_linear_acceleration_ = node->declare_parameter<double>("max_linear_acceleration", 2.0);
+    max_angular_acceleration_ = node->declare_parameter<double>("max_angular_acceleration", 4.0);
 
     // Read slip detection parameters (Session 4)
     slip_threshold_ = node->declare_parameter<double>("slip_threshold", 0.2);
@@ -116,6 +118,8 @@ controller_interface::CallbackReturn SkidSteerController::on_activate(
     // Initialize timestamps
     last_twist_command_.linear.x = 0.0;
     last_twist_command_.angular.z = 0.0;
+    current_v_x_ = 0.0;
+    current_omega_z_ = 0.0;
     last_twist_timestamp_ = get_node()->now();
     last_odometry_timestamp_ = get_node()->now();
     last_ground_velocity_ = 0.0;
@@ -259,25 +263,54 @@ void SkidSteerController::apply_slip_compensation(
 }
 
 controller_interface::return_type SkidSteerController::update(
-  const rclcpp::Time & time, const rclcpp::Duration & /*period*/)
+  const rclcpp::Time & time, const rclcpp::Duration & period)
 {
+
   // Check for command timeout
   rclcpp::Duration time_since_last_command = time - last_twist_timestamp_;
+  
+  double target_v_x = 0.0;
+  double target_omega_z = 0.0;
+  
   if (time_since_last_command.seconds() > cmd_vel_timeout_) {
-    // Timeout: stop motors
-    for (auto & cmd_interface : velocity_commands_) {
-      cmd_interface.get().set_value(0.0);
-    }
+    // Timeout: stop motors (target is 0.0)
     RCLCPP_WARN_THROTTLE(
       get_node()->get_logger(), *get_node()->get_clock(), 2000,
-      "Velocity command timeout: stopping motors");
-    return controller_interface::return_type::OK;
+      "Velocity command timeout: decelerating to stop");
+  } else {
+    target_v_x = last_twist_command_.linear.x;
+    target_omega_z = last_twist_command_.angular.z;
+  }
+  
+  // Apply acceleration limits
+  double dt = period.seconds();
+  if (dt <= 0.0) dt = 0.01; // fallback
+  
+  double dv_x = target_v_x - current_v_x_;
+  double max_dv_x = max_linear_acceleration_ * dt;
+  if (dv_x > max_dv_x) {
+    current_v_x_ += max_dv_x;
+  } else if (dv_x < -max_dv_x) {
+    current_v_x_ -= max_dv_x;
+  } else {
+    current_v_x_ = target_v_x;
+  }
+  
+  double domega_z = target_omega_z - current_omega_z_;
+  double max_domega_z = max_angular_acceleration_ * dt;
+  if (domega_z > max_domega_z) {
+    current_omega_z_ += max_domega_z;
+  } else if (domega_z < -max_domega_z) {
+    current_omega_z_ -= max_domega_z;
+  } else {
+    current_omega_z_ = target_omega_z;
   }
 
-  // Compute wheel velocities from Twist command
+  // Compute wheel velocities from smoothed command
   std::vector<double> wheel_velocities(4);
   compute_wheel_velocities(
-    last_twist_command_.linear.x, last_twist_command_.angular.z, wheel_velocities);
+    current_v_x_, current_omega_z_, wheel_velocities);
+
 
   // Apply slip compensation (Session 4)
   std::vector<double> compensated_velocities(4);

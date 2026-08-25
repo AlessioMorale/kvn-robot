@@ -1,13 +1,13 @@
-/**
- * ROS 2 Controller Configuration for Skid-Steer Robot
- * 
- * This file defines the controller manager settings and controller configurations
- * for the 4-wheel skid-steer rover.
- */
+#
+# ROS 2 Controller Configuration for Skid-Steer Robot
+# 
+# This file defines the controller manager settings and controller configurations
+# for the 4-wheel skid-steer rover.
+#/
 
 controller_manager:
   ros__parameters:
-    update_rate: 100  # Hz
+    update_rate: 50  # Hz
     use_sim_time: false
 
     # Joint state broadcaster - publishes all joint states
@@ -36,6 +36,10 @@ skid_steer_controller:
     # Command timeout in seconds
     # If no command received within this time, stop motors
     cmd_vel_timeout: 1.0
+    
+    # Acceleration limits (m/s^2 and rad/s^2)
+    max_linear_acceleration: 3.0
+    max_angular_acceleration: 3.0
     
     # Slip detection parameters (Session 4)
     # Slip ratio threshold: if |λ| > threshold, wheel pair is considered slipping

@@ -1,9 +1,5 @@
-cmake_minimum_required(VERSION 3.8)
-project(kvn_robot_bringup)
-
-if(CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
-  add_compile_options(-Wall -Wextra -Werror=conversion -Werror=unused-but-set-variable -Werror=return-type -Werror=shadow)
-endif()
+cmake_minimum_required(VERSION 3.16)
+project(kvn_robot_bringup LANGUAGES NONE)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)

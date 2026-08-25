@@ -1,8 +1,0 @@
-<launch>
-  <!-- fix the regex to allow '-' and '_' in the filename -->
-  <arg name="asset_uri_allowlist"
-    default="['^package://(?:\\w+/)*[\\w-]+\\.(?:dae|fbx|glb|gltf|jpeg|jpg|mtl|obj|png|stl|tif|tiff|urdf|webp|xacro)$']" />
-  <node pkg="foxglove_bridge" exec="foxglove_bridge">
-    <param name="asset_uri_allowlist" value="$(var asset_uri_allowlist)" />
-  </node>
-</launch>

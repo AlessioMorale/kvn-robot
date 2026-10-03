@@ -1,0 +1,61 @@
+# RC teleop: ELRS receiver (UART1, /dev/ttyAMA1) -> /joy -> teleop_twist_joy -> /cmd_vel
+#
+# CRSF channels (AETR, mode 2 handset):
+#   ch0 = CH1 aileron  (right stick X)
+#   ch1 = CH2 elevator (right stick Y)
+#   ch2 = CH3 throttle (left stick Y, not self-centering)
+#   ch3 = CH4 rudder   (left stick X)
+#   ch4..7 = AUX1..4   (switches)
+#   ch5    = AUX2      speed switch: high = turbo (buttons[1]); low and mid = normal
+#
+# Joy axes follow the usual gamepad convention: stick up = +1, stick left = +1
+# (so X axes are inverted). teleop_twist_joy then needs no inversion.
+
+crsf_joy_node:
+  ros__parameters:
+    serial:
+      port: /dev/ttyAMA1
+      baudrate: 460800          # must match the RX "Serial baud" setting
+    joy_topic: /joy
+    joy_publish_period_ms: 20   # 50 Hz
+    failsafe_timeout_ms: 300
+    send_failsafe_continuously: true
+    axis_mappings:
+      #          ail    ele    thr    rud
+      channels: [0,     1,     2,     3]
+      scale:    [1.0,   1.0,   1.0,   1.0]
+      offset:   [0.0,   0.0,   0.0,   0.0]
+      invert:   [true,  false, false, true]
+      deadzone: [0.05,  0.05,  0.0,   0.05]
+      min:      [-1.0,  -1.0,  -1.0,  -1.0]
+      max:      [1.0,   1.0,   1.0,   1.0]
+    button_mappings:
+      #           AUX1  AUX2  AUX3  AUX4
+      channels:  [4,    5,    6,    7]
+      # AUX2 at 0.75: a 3-pos middle (1500 us = 0.5) must not flicker turbo
+      threshold: [0.5,  0.75, 0.5,  0.5]
+      invert:    [false, false, false, false]
+    # Sticks centered, switches off: robot stops on RC link loss
+    failsafe_axes: [0.0, 0.0, 0.0, 0.0]
+    failsafe_buttons: [0, 0, 0, 0]
+    telemetry_battery_enabled: true
+    battery_topic: /battery_state
+
+teleop_twist_joy_node:
+  ros__parameters:
+    require_enable_button: true  # no deadman switch yet; set an AUX button + true to add one
+    enable_button: 0
+    enable_turbo_button: 3        # AUX2 high
+    axis_linear:
+      x: 1                        # elevator, right stick Y
+    scale_linear:
+      x: 1.0                      # m/s
+    scale_linear_turbo:
+      x: 2.0                      # m/s
+    axis_angular:
+      yaw: 0                      # aileron, right stick X
+    scale_angular:
+      yaw: 0.6                    # rad/s
+    scale_angular_turbo:
+      yaw: 2.0                    # rad/s
+    publish_stamped_twist: false  # skid_steer_controller takes geometry_msgs/Twist

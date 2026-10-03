@@ -1,0 +1,11 @@
+[Unit]
+Description=kvn_expio INA3221 power monitor setup
+After=systemd-modules-load.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/kvn-ina3221-setup.sh
+
+[Install]
+WantedBy=multi-user.target

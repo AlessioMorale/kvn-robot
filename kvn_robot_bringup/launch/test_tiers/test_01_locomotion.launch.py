@@ -23,7 +23,8 @@ def generate_launch_description():
     
     urdf_file = PathJoinSubstitution([kvn_robot_description_dir, 'urdf', 'kvn_rover.urdf.xacro'])
     controllers_file = PathJoinSubstitution([kvn_robot_bringup_dir, 'config', 'controllers.yaml'])
-    joy_launch_file = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'joy_to_twist.launch.py'])
+    hwmon_launch_file = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'hwmon.launch.py'])
+    teleop_launch_file = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'teleop.launch.py'])
     
     # Robot description
     robot_description_content = Command(['xacro ', urdf_file, ' use_mock_hardware:=', use_mock_hardware])
@@ -62,15 +63,19 @@ def generate_launch_description():
     )
     
     # Includes
-    joy_to_twist_include = IncludeLaunchDescription(
-        AnyLaunchDescriptionSource(joy_launch_file)
+    hwmon_include = IncludeLaunchDescription(
+        AnyLaunchDescriptionSource(hwmon_launch_file)
+    )
+    teleop_include = IncludeLaunchDescription(
+        AnyLaunchDescriptionSource(teleop_launch_file)
     )
     
     return LaunchDescription([
+        hwmon_include,
         use_mock_hardware_arg,
         robot_state_publisher,
         controller_manager,
         spawner_jsb,
         spawner_ssc,
-        joy_to_twist_include
+        teleop_include
     ])

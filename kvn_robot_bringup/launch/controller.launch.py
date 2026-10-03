@@ -47,13 +47,16 @@ def generate_launch_description():
         arguments=['--controller-manager', '/controller_manager', '--controller-manager-timeout', '20', 'skid_steer_controller']
     )
     
+    hwmon_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'hwmon.launch.py'])
     odometry_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'odometry.launch.py'])
-    joy_to_twist_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'joy_to_twist.launch.py'])
+    teleop_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'teleop.launch.py'])
     
+    hwmon_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(hwmon_launch))
     odometry_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(odometry_launch))
-    joy_to_twist_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(joy_to_twist_launch))
+    teleop_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(teleop_launch))
     
     return LaunchDescription([
+        hwmon_include,
         use_mock_hardware_arg,
         publish_joints_arg,
         robot_state_publisher,
@@ -61,5 +64,5 @@ def generate_launch_description():
         spawner_jsb,
         spawner_ssc,
         odometry_include,
-        joy_to_twist_include
+        teleop_include
     ])

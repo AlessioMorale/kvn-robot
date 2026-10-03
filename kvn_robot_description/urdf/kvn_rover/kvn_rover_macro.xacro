@@ -80,6 +80,17 @@
         rpy="0 ${robot_props['robot']['camera_pitch']} 0" />
     </joint>
 
+    <!-- ISM330DHCX on SPI0; the driver publishes in the sensor's own axes, so the mounting
+         rotation (sensor axes -> base_link) goes in imu_roll/pitch/yaw. -->
+    <link name="imu_link" />
+    <joint name="imu_joint" type="fixed">
+      <parent link="base_link" />
+      <child link="imu_link" />
+      <origin
+        xyz="${robot_props['robot']['imu_pos_x']} ${robot_props['robot']['imu_pos_y']} ${robot_props['robot']['imu_pos_z']}"
+        rpy="${robot_props['robot']['imu_roll']} ${robot_props['robot']['imu_pitch']} ${robot_props['robot']['imu_yaw']}" />
+    </joint>
+
     <link name="lidar_attachment_link">
       <collision>
         <geometry>

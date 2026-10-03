@@ -17,3 +17,10 @@ robot:
   lidar_pos_x: 0.03
   lidar_pos_y: -0.004
   lidar_pos_z: 0.115
+  # ISM330DHCX: 10 cm behind, 5 cm right of base_link; axes aligned (X fwd, Y left, Z up)
+  imu_pos_x: -0.10
+  imu_pos_y: -0.05
+  imu_pos_z: 0.0
+  imu_roll: 0.0
+  imu_pitch: 0.0
+  imu_yaw: 0.0

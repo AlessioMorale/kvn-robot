@@ -1,0 +1,48 @@
+# Power + thermal monitoring -> /diagnostics and /battery_state
+# /battery_state is also sent to the radio as CRSF telemetry (crsf_joy_node).
+#
+# INA3221 at I2C1 0x40 (shunts 20 mOhm), all channels on the 4S Li-ion battery:
+#   ch1 = compute, ch2 = motors, ch3 = aux, curr4 = sum of all channels
+# Units from the kernel: in* mV, curr* mA, temp* m°C
+
+hwmon_diagnostic_updater_node:
+  ros__parameters:
+    update_rate_hz: 2.0
+    battery_topic: /battery_state
+    sensors: [power, cpu]
+
+    power:
+      # Device path, resolved to its hwmonN dir at startup (hwmonN is not stable across boots)
+      base_path: /sys/bus/i2c/devices/1-0040
+      metrics: [battery_voltage, total_current, compute_current, motors_current, aux_current]
+      battery_voltage:
+        file: in1_input
+        scale: 0.001
+        battery_field: voltage
+        # 4S Li-ion: 3.4 V/cell warn, 3.1 V/cell error, above 4.25 V/cell error
+        warn_min: 13.6
+        error_min: 12.4
+        warn_max: 16.9
+        error_max: 17.0
+      total_current:
+        file: curr4_input
+        scale: 0.001          # positive = discharge (what the radio expects; ROS uses negative)
+        battery_field: current
+      compute_current:
+        file: curr1_input
+        scale: 0.001
+      motors_current:
+        file: curr2_input
+        scale: 0.001
+      aux_current:
+        file: curr3_input
+        scale: 0.001
+
+    cpu:
+      base_path: /sys/devices/virtual/thermal/thermal_zone0
+      metrics: [temperature]
+      temperature:
+        file: temp1_input
+        scale: 0.001
+        warn_max: 75.0        # Pi 5 starts throttling at 80-85 °C
+        error_max: 85.0

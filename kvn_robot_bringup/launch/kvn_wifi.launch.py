@@ -32,6 +32,7 @@ def generate_launch_description():
         ),
         launch_arguments={
             "source_pipeline": LaunchConfiguration("source_pipeline"),
+            "webrtc": LaunchConfiguration("webrtc"),
         }.items(),
     )
     return LaunchDescription(
@@ -39,6 +40,7 @@ def generate_launch_description():
             DeclareLaunchArgument("address", default_value="0.0.0.0"),
             DeclareLaunchArgument("send_buffer_limit", default_value="4000000"),
             DeclareLaunchArgument("source_pipeline", default_value="v4l2src device=/dev/video0"),
+            DeclareLaunchArgument("webrtc", default_value="false"),
             bridge,
             video,
         ]

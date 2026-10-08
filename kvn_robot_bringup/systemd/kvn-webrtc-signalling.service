@@ -1,0 +1,23 @@
+[Unit]
+Description=KVN WebRTC signalling server (gst-plugins-rs), for the video stream
+After=network.target
+# Optional, like kvn-wifi.service: the control stack never depends on it.
+
+[Service]
+Type=simple
+User=kvn
+# Binds all interfaces; nftables-kvn.conf drops TCP 8443 everywhere except ZeroTier.
+ExecStart=/opt/kvn/gst-rs/bin/gst-webrtc-signalling-server --host 0.0.0.0 --port 8443
+Nice=10
+CPUQuota=20%
+CPUWeight=50
+MemoryMax=64M
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

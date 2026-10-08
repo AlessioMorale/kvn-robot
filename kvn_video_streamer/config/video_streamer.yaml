@@ -22,3 +22,13 @@ video_streamer:
     qos_depth: 5
     poll_period_ms: 200           # subscriber-count polling (start/stop/keyframe)
     retry_delay_ms: 2000          # back-off after a pipeline error
+
+    # Optional WebRTC branch (gst-plugins-rs webrtcsink; needs the plugin and a signalling server,
+    # see the package README). With it on, the camera stays open so viewers can connect, and
+    # webrtcsink encodes (x264) only while one is connected. Bitrate adapts between min and max.
+    webrtc.enabled: false
+    webrtc.signaller_uri: "ws://127.0.0.1:8443"
+    webrtc.stun_server: ""        # empty keeps the plugin default (a public STUN server)
+    webrtc.start_bitrate_kbps: 1000
+    webrtc.min_bitrate_kbps: 200
+    webrtc.max_bitrate_kbps: 2000

@@ -54,6 +54,20 @@ std::optional<std::string> validate(const StreamConfig & config)
   {
     return "keyframe_interval_s must be > 0";
   }
+  if (config.webrtc.enabled)
+  {
+    const WebrtcConfig & w = config.webrtc;
+    if (w.signaller_uri.empty())
+    {
+      return "webrtc.signaller_uri must not be empty";
+    }
+    if (
+      w.min_bitrate_kbps <= 0 || w.start_bitrate_kbps < w.min_bitrate_kbps ||
+      w.max_bitrate_kbps < w.start_bitrate_kbps)
+    {
+      return "webrtc bitrates must satisfy 0 < min <= start <= max";
+    }
+  }
   return std::nullopt;
 }
 
@@ -79,6 +93,22 @@ std::string build_encoder_description(const StreamConfig & config)
   return out.str();
 }
 
+std::string build_webrtc_description(const WebrtcConfig & webrtc, const std::string & sink_name)
+{
+  std::ostringstream out;
+  out << "webrtcsink name=" << sink_name << " video-caps=\"video/x-h264\""
+      << " congestion-control=homegrown"
+      << " start-bitrate=" << webrtc.start_bitrate_kbps * 1000
+      << " min-bitrate=" << webrtc.min_bitrate_kbps * 1000
+      << " max-bitrate=" << webrtc.max_bitrate_kbps * 1000
+      << " signaller::uri=" << webrtc.signaller_uri;
+  if (!webrtc.stun_server.empty())
+  {
+    out << " stun-server=" << webrtc.stun_server;
+  }
+  return out.str();
+}
+
 std::string build_pipeline_description(const StreamConfig & config, const std::string & sink_name)
 {
   std::ostringstream out;
@@ -89,11 +119,25 @@ std::string build_pipeline_description(const StreamConfig & config, const std::s
     out << ",format=" << config.raw_format;
   }
   out << ",width=" << config.width << ",height=" << config.height
-      << ",pixel-aspect-ratio=1/1,framerate=" << config.framerate << "/1"
-      << " ! queue max-size-buffers=2 leaky=downstream"
-      << " ! " << build_encoder_description(config) << " ! h264parse config-interval=-1"
+      << ",pixel-aspect-ratio=1/1,framerate=" << config.framerate << "/1";
+  if (config.webrtc.enabled)
+  {
+    out << " ! tee name=kvn_tee"
+        << " kvn_tee. ! queue max-size-buffers=2 leaky=downstream"
+        << " ! valve name=" << kValveName << " drop=true";
+  }
+  else
+  {
+    out << " ! queue max-size-buffers=2 leaky=downstream";
+  }
+  out << " ! " << build_encoder_description(config) << " ! h264parse config-interval=-1"
       << " ! video/x-h264,stream-format=byte-stream,alignment=au"
       << " ! appsink name=" << sink_name << " sync=false max-buffers=4 drop=true";
+  if (config.webrtc.enabled)
+  {
+    out << " kvn_tee. ! queue max-size-buffers=2 leaky=downstream ! "
+        << build_webrtc_description(config.webrtc, "kvn_rtc");
+  }
   return out.str();
 }
 

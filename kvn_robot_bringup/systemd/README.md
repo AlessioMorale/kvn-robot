@@ -5,7 +5,8 @@
 | `kvn-ros.env` | shared environment, includes `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` (DDS never crosses the VPN) |
 | `kvn-control.service` | control stack (`mini_mvp_complete.launch.py`), `Nice=-5`, never depends on ZeroTier |
 | `kvn-wifi.service` | `kvn_wifi.launch.py` (bridge + video): `Nice=10`, `CPUQuota=150%`, `After=`/`Wants=zerotier-one.service` |
-| `nftables-kvn.conf` | table `inet kvn`: TCP 8765 accepted on `zt*` only, dropped elsewhere; nothing else touched |
+| `kvn-webrtc-signalling.service` | `gst-webrtc-signalling-server` on TCP 8443 for the optional WebRTC video: `Nice=10`, `CPUQuota=20%`, `Restart=always` |
+| `nftables-kvn.conf` | table `inet kvn`: TCP 8765 and 8443 accepted on `zt*` only, dropped elsewhere; nothing else touched |
 | `zerotier-flow-rules.example` | optional ZeroTier Central flow rules |
 
 Adjust `User=`, `KVN_WS` and the CPU quota (150% of 400% on 4 cores) for your robot.
@@ -15,10 +16,22 @@ Adjust `User=`, `KVN_WS` and the CPU quota (150% of 400% on 4 cores) for your ro
 ```bash
 sudo install -d /etc/kvn
 sudo install -m 0644 kvn-ros.env /etc/kvn/kvn-ros.env
-sudo install -m 0644 kvn-control.service kvn-wifi.service /etc/systemd/system/
+sudo install -m 0644 kvn-control.service kvn-wifi.service kvn-webrtc-signalling.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now kvn-control.service kvn-wifi.service
 ```
+
+## WebRTC video (optional)
+
+Uses the gst-plugins-rs `webrtcsink`, which Ubuntu does not package. Build it for the robot's distro (see remote_controller `tools/webrtc_spike/build_plugins_resolute.sh`) and install the plugin libraries and the signalling server:
+
+```bash
+sudo install -d /opt/kvn/gst-rs/bin /opt/kvn/gst-rs/lib/gstreamer-1.0
+sudo install -m 0755 gst-webrtc-signalling-server /opt/kvn/gst-rs/bin/
+sudo install -m 0644 libgstrswebrtc.so libgstrsrtp.so /opt/kvn/gst-rs/lib/gstreamer-1.0/
+```
+
+Then start the streamer with `webrtc:=true` (`ros2 launch kvn_robot_bringup kvn_wifi.launch.py webrtc:=true`). The camera then stays open and `webrtcsink` encodes only while a viewer is connected. If WebRTC fails, the streamer falls back to the on-demand Foxglove stream and retries WebRTC every 10 s. The media itself flows over UDP on random ports; only TCP 8443 is filtered here, so rely on ZeroTier for the rest.
 
 Other ROS 2 shells on the robot should `set -a; . /etc/kvn/kvn-ros.env; set +a` too.
 

@@ -1,14 +1,16 @@
 [Unit]
 Description=KVN WiFi enhancement (read-only foxglove_bridge + H.264 video)
 # ZeroTier first, but optional: a failed/absent VPN is degraded mode, not an error.
-After=zerotier-one.service network-online.target
-Wants=zerotier-one.service
+After=zerotier-one.service network-online.target kvn-webrtc-signalling.service
+Wants=zerotier-one.service kvn-webrtc-signalling.service
 # Crash-isolated from the control stack: no Requires/BindsTo/PartOf links.
 
 [Service]
 Type=simple
 User=kvn
 EnvironmentFile=/etc/kvn/kvn-ros.env
+# gst-plugins-rs (webrtcsink), only used when the streamer runs with webrtc:=true
+Environment=GST_PLUGIN_PATH=/opt/kvn/gst-rs/lib/gstreamer-1.0
 # R5: video/bridge must not starve the control chain (4 cores: at most 1.5 cores).
 Nice=10
 CPUQuota=150%

@@ -19,6 +19,7 @@
 #include "kvn_video_streamer/h264_inspect.hpp"
 #include "kvn_video_streamer/video_streamer_node.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include <gst/gst.h>
 
 using namespace std::chrono_literals;
 using foxglove_msgs::msg::CompressedVideo;
@@ -80,10 +81,12 @@ protected:
     executor_.remove_node(client_);
   }
 
-  void start_streamer(double keyframe_interval_s)
+  void start_streamer(double keyframe_interval_s, bool webrtc = false)
   {
     rclcpp::NodeOptions options;
     options.parameter_overrides({
+      {"webrtc.enabled", webrtc},
+      {"webrtc.stun_server", "stun://127.0.0.1:3478"},
       {"source_pipeline", "videotestsrc is-live=true pattern=ball"},
       {"width", 640},
       {"height", 480},
@@ -226,4 +229,82 @@ TEST_F(StreamTest, BrokenSourceDoesNotCrash)
   spin_for(1500ms);
   EXPECT_TRUE(collector.frames.empty());
   EXPECT_EQ(streamer_->frames_published(), 0U);
+}
+
+namespace
+{
+bool webrtcsink_available()
+{
+  gst_init(nullptr, nullptr);
+  GstElementFactory * factory = gst_element_factory_find("webrtcsink");
+  if (factory == nullptr)
+  {
+    return false;
+  }
+  gst_object_unref(factory);
+  return true;
+}
+}  // namespace
+
+// With the WebRTC branch on, the pipeline stays up without subscribers but the Foxglove branch
+// is closed; it opens (with a key frame first) when a subscriber appears and closes again.
+TEST_F(StreamTest, WebrtcBranchGatesFoxgloveStream)
+{
+  if (!webrtcsink_available())
+  {
+    GTEST_SKIP() << "gst-plugins-rs webrtcsink not installed";
+  }
+  start_streamer(1.0, true);
+  ASSERT_TRUE(spin_until([&]() { return streamer_->is_streaming(); }, 10s))
+    << streamer_->pipeline_description();
+  spin_for(800ms);
+  EXPECT_TRUE(streamer_->is_streaming());
+  EXPECT_EQ(streamer_->frames_published(), 0U) << "Foxglove branch must stay closed";
+
+  auto collector = std::make_unique<Collector>(client_, topic_);
+  ASSERT_TRUE(spin_until([&]() { return collector->frames.size() >= 10; }, 10s));
+  EXPECT_TRUE(collector->frames.front().info.has_idr);
+  EXPECT_TRUE(collector->frames.front().info.starts_with_start_code);
+
+  collector.reset();
+  spin_for(600ms);
+  const uint64_t after_close = streamer_->frames_published();
+  spin_for(800ms);
+  EXPECT_EQ(streamer_->frames_published(), after_close) << "branch did not close";
+  EXPECT_TRUE(streamer_->is_streaming()) << "pipeline must stay up for WebRTC viewers";
+}
+
+// No signalling server: webrtcsink fails, but the Foxglove stream must still work (on demand),
+// and the node must keep running instead of crash-looping the pipeline.
+TEST_F(StreamTest, WebrtcFailureFallsBackToFoxglove)
+{
+  if (!webrtcsink_available())
+  {
+    GTEST_SKIP() << "gst-plugins-rs webrtcsink not installed";
+  }
+  rclcpp::NodeOptions options;
+  options.parameter_overrides({
+    {"source_pipeline", "videotestsrc is-live=true pattern=ball"},
+    {"topic", topic_},
+    {"poll_period_ms", 100},
+    {"retry_delay_ms", 300},
+    {"webrtc.enabled", true},
+    {"webrtc.signaller_uri", "ws://127.0.0.1:1"},
+    {"webrtc.stun_server", "stun://127.0.0.1:3478"},
+    {"webrtc.retry_s", 3},
+  });
+  streamer_ = std::make_shared<VideoStreamerNode>(options);
+  executor_.add_node(streamer_);
+
+  // Let the first WebRTC attempt fail, then subscribe.
+  spin_for(1500ms);
+  Collector collector(client_, topic_);
+  ASSERT_TRUE(spin_until([&]() { return collector.frames.size() >= 15; }, 10s))
+    << "Foxglove stream did not come up after the WebRTC failure";
+  EXPECT_TRUE(collector.frames.front().info.has_idr);
+
+  // While a Foxglove viewer is connected the pipeline is not restarted to retry WebRTC.
+  const std::size_t before = collector.frames.size();
+  spin_for(4s);
+  EXPECT_GE(collector.frames.size(), before + static_cast<std::size_t>(kFps * 3));
 }

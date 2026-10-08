@@ -33,6 +33,18 @@ VideoStreamerNode::VideoStreamerNode(const rclcpp::NodeOptions & options)
   config_.encoder = declare_parameter<std::string>("encoder", config_.encoder);
   config_.raw_format = declare_parameter<std::string>("raw_format", config_.raw_format);
   config_.x264_profile = declare_parameter<std::string>("x264_profile", config_.x264_profile);
+  config_.webrtc.enabled = declare_parameter<bool>("webrtc.enabled", config_.webrtc.enabled);
+  config_.webrtc.signaller_uri =
+    declare_parameter<std::string>("webrtc.signaller_uri", config_.webrtc.signaller_uri);
+  config_.webrtc.stun_server =
+    declare_parameter<std::string>("webrtc.stun_server", config_.webrtc.stun_server);
+  config_.webrtc.start_bitrate_kbps = static_cast<int>(
+    declare_parameter<int64_t>("webrtc.start_bitrate_kbps", config_.webrtc.start_bitrate_kbps));
+  config_.webrtc.min_bitrate_kbps = static_cast<int>(
+    declare_parameter<int64_t>("webrtc.min_bitrate_kbps", config_.webrtc.min_bitrate_kbps));
+  config_.webrtc.max_bitrate_kbps = static_cast<int>(
+    declare_parameter<int64_t>("webrtc.max_bitrate_kbps", config_.webrtc.max_bitrate_kbps));
+  webrtc_retry_ = std::chrono::seconds(declare_parameter<int64_t>("webrtc.retry_s", 10));
   frame_id_ = declare_parameter<std::string>("frame_id", "camera");
   const auto topic = declare_parameter<std::string>("topic", "/video/compressed");
   const auto qos_depth = declare_parameter<int64_t>("qos_depth", 5);
@@ -51,7 +63,6 @@ VideoStreamerNode::VideoStreamerNode(const rclcpp::NodeOptions & options)
   }
   pipeline_description_ = build_pipeline_description(config_, kSinkName);
   RCLCPP_INFO(get_logger(), "pipeline: %s", pipeline_description_.c_str());
-
   publisher_ = create_publisher<foxglove_msgs::msg::CompressedVideo>(
     topic, rclcpp::QoS(rclcpp::KeepLast(static_cast<std::size_t>(qos_depth))).reliable());
   poll_timer_ =
@@ -62,32 +73,60 @@ VideoStreamerNode::~VideoStreamerNode() { stop_pipeline(); }
 
 void VideoStreamerNode::on_poll()
 {
+  const auto now = std::chrono::steady_clock::now();
   if (pipeline_ != nullptr && !check_bus())
   {
+    const bool webrtc_failed = webrtc_active_ && webrtc_error_;
     stop_pipeline();
-    retry_after_ = std::chrono::steady_clock::now() + retry_delay_;
+    if (webrtc_failed)
+    {
+      // Keep Foxglove alive: restart at once without the WebRTC branch.
+      webrtc_retry_after_ = now + webrtc_retry_;
+      retry_after_ = now;
+      RCLCPP_WARN(
+        get_logger(), "WebRTC branch failed: Foxglove only, retrying WebRTC in %lld s",
+        static_cast<long long>(webrtc_retry_.count()));
+    }
+    else
+    {
+      retry_after_ = now + retry_delay_;
+    }
     last_subscriber_count_ = 0;
   }
 
   const std::size_t count = publisher_->get_subscription_count();
-  if (count == 0)
+  const bool want_webrtc = config_.webrtc.enabled && now >= webrtc_retry_after_;
+
+  if (pipeline_ != nullptr && !webrtc_active_ && want_webrtc && count == 0)
   {
-    if (pipeline_ != nullptr)
-    {
-      RCLCPP_INFO(get_logger(), "no subscribers: stopping pipeline");
-      stop_pipeline();
-    }
+    RCLCPP_INFO(get_logger(), "retrying WebRTC branch");
+    stop_pipeline();
   }
-  else if (pipeline_ == nullptr)
+
+  if (pipeline_ == nullptr)
   {
-    if (std::chrono::steady_clock::now() >= retry_after_)
+    if ((want_webrtc || count > 0) && now >= retry_after_)
     {
-      RCLCPP_INFO(get_logger(), "%zu subscriber(s): starting pipeline", count);
-      if (!start_pipeline())
+      RCLCPP_INFO(
+        get_logger(), "starting pipeline (%zu subscriber(s), WebRTC %s)", count,
+        want_webrtc ? "on" : "off");
+      if (!start_pipeline(want_webrtc))
       {
-        retry_after_ = std::chrono::steady_clock::now() + retry_delay_;
+        retry_after_ = now + retry_delay_;
       }
     }
+    last_subscriber_count_ = pipeline_ != nullptr ? count : 0;
+    return;
+  }
+
+  if (webrtc_active_)
+  {
+    set_foxglove_open(count > 0);
+  }
+  else if (count == 0)
+  {
+    RCLCPP_INFO(get_logger(), "no subscribers: stopping pipeline");
+    stop_pipeline();
   }
   else if (count > last_subscriber_count_)
   {
@@ -98,8 +137,27 @@ void VideoStreamerNode::on_poll()
   last_subscriber_count_ = pipeline_ != nullptr ? count : 0;
 }
 
-bool VideoStreamerNode::start_pipeline()
+void VideoStreamerNode::set_foxglove_open(bool open)
 {
+  if (valve_ == nullptr || open == foxglove_open_)
+  {
+    return;
+  }
+  g_object_set(valve_, "drop", open ? FALSE : TRUE, nullptr);
+  foxglove_open_ = open;
+  RCLCPP_INFO(get_logger(), "Foxglove branch %s", open ? "open" : "closed");
+  if (open)
+  {
+    request_keyframe();
+  }
+}
+
+bool VideoStreamerNode::start_pipeline(bool with_webrtc)
+{
+  StreamConfig config = config_;
+  config.webrtc.enabled = with_webrtc;
+  pipeline_description_ = build_pipeline_description(config, kSinkName);
+  RCLCPP_INFO(get_logger(), "pipeline: %s", pipeline_description_.c_str());
   GError * error = nullptr;
   GstElement * pipeline = gst_parse_launch(pipeline_description_.c_str(), &error);
   if (error != nullptr)
@@ -120,6 +178,22 @@ bool VideoStreamerNode::start_pipeline()
     return false;
   }
 
+  webrtc_active_ = with_webrtc;
+  webrtc_error_ = false;
+  if (with_webrtc)
+  {
+    valve_ = gst_bin_get_by_name(GST_BIN(pipeline), kValveName);
+    if (valve_ == nullptr)
+    {
+      RCLCPP_ERROR(get_logger(), "valve '%s' not found in pipeline", kValveName);
+      gst_object_unref(sink);
+      gst_object_unref(pipeline);
+      webrtc_active_ = false;
+      return false;
+    }
+    foxglove_open_ = false;
+  }
+
   GstAppSinkCallbacks callbacks{};
   callbacks.new_sample = &VideoStreamerNode::on_new_sample;
   gst_app_sink_set_callbacks(GST_APP_SINK(sink), &callbacks, this, nullptr);
@@ -134,6 +208,7 @@ bool VideoStreamerNode::start_pipeline()
     return false;
   }
   streaming_.store(true);
+  last_subscriber_count_ = 0;
   return true;
 }
 
@@ -145,6 +220,12 @@ void VideoStreamerNode::stop_pipeline()
   }
   // Blocks until the streaming threads stopped: no sample callback after this.
   gst_element_set_state(pipeline_, GST_STATE_NULL);
+  if (valve_ != nullptr)
+  {
+    gst_object_unref(valve_);
+    valve_ = nullptr;
+  }
+  foxglove_open_ = false;
   gst_object_unref(appsink_);
   gst_object_unref(pipeline_);
   appsink_ = nullptr;
@@ -191,6 +272,20 @@ bool VideoStreamerNode::check_bus()
           debug != nullptr ? debug : "");
         g_clear_error(&err);
         g_free(debug);
+        if (webrtc_active_ && msg->src != nullptr)
+        {
+          GstElement * rtc = gst_bin_get_by_name(GST_BIN(pipeline_), "kvn_rtc");
+          if (
+            rtc != nullptr &&
+            (msg->src == GST_OBJECT(rtc) || gst_object_has_as_ancestor(msg->src, GST_OBJECT(rtc))))
+          {
+            webrtc_error_ = true;
+          }
+          if (rtc != nullptr)
+          {
+            gst_object_unref(rtc);
+          }
+        }
         healthy = false;
         break;
       }

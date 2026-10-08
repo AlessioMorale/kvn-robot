@@ -1,0 +1,24 @@
+# kvn_video_streamer: on-demand H.264 for Lichtblick (foxglove_msgs/CompressedVideo).
+# Baseline from design §4: 640x480 @ 15 fps, 1 Mbps, key frame every 1 s.
+video_streamer:
+  ros__parameters:
+    # gst-launch fragment that produces raw video. For an MJPEG-only USB camera
+    # use e.g. "v4l2src device=/dev/video0 ! image/jpeg,framerate=30/1 ! jpegdec".
+    # For tests: "videotestsrc is-live=true pattern=ball".
+    source_pipeline: "v4l2src device=/dev/video0"
+    width: 640
+    height: 480
+    framerate: 15
+    bitrate_kbps: 1000
+    keyframe_interval_s: 1.0      # keep <= 1.0 so reconnecting viewers resume fast
+    # Empty = x264enc tune=zerolatency speed-preset=ultrafast bframes=0.
+    # Hardware encoder example (placeholders {bitrate_kbps} {bitrate_bps} {keyint}):
+    #   "v4l2h264enc extra-controls=\"controls,video_bitrate={bitrate_bps},h264_i_frame_period={keyint}\" ! video/x-h264,level=(string)4"
+    encoder: ""
+    raw_format: "I420"            # forced before the encoder; "" lets the encoder choose
+    x264_profile: "baseline"      # only used by the built-in x264enc
+    frame_id: "camera"
+    topic: "/video/compressed"
+    qos_depth: 5
+    poll_period_ms: 200           # subscriber-count polling (start/stop/keyframe)
+    retry_delay_ms: 2000          # back-off after a pipeline error

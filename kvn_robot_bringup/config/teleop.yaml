@@ -40,12 +40,19 @@ crsf_joy_node:
     failsafe_buttons: [0, 0, 0, 0]
     telemetry_battery_enabled: true
     battery_topic: /battery_state
+    # Robot status string (kvn_status) forwarded to the handset as FLIGHT_MODE, max 15 chars.
+    # Sent every status_period_ms and on change; not repeated once the topic is silent for
+    # status_timeout_ms, so the handset marks it stale.
+    telemetry_status_enabled: true
+    status_topic: /robot_status
+    status_period_ms: 500
+    status_timeout_ms: 2000
 
 teleop_twist_joy_node:
   ros__parameters:
-    require_enable_button: true  # no deadman switch yet; set an AUX button + true to add one
-    enable_button: 0
-    enable_turbo_button: 3        # AUX2 high
+    require_enable_button: true  # motion only while AUX1 is high (handset arm + deadman)
+    enable_button: 0              # AUX1 = buttons[0]
+    enable_turbo_button: 1        # AUX2 = buttons[1], high = turbo
     axis_linear:
       x: 1                        # elevator, right stick Y
     scale_linear:

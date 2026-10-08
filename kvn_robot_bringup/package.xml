@@ -13,6 +13,8 @@
   <exec_depend>hwmon_diagnostic_updater</exec_depend>
   <exec_depend>kvn_status</exec_depend>
   <exec_depend>teleop_twist_joy</exec_depend>
+  <exec_depend>foxglove_bridge</exec_depend>
+  <exec_depend>kvn_video_streamer</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

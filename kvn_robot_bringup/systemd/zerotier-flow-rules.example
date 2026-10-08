@@ -1,0 +1,19 @@
+# Optional ZeroTier Central flow rules (paste into the network's Flow Rules).
+# Only the handheld (ZT address aaaaaaaaaa) and the dev machine (bbbbbbbbbb) may
+# reach the robot's TCP 8765; everything else on the network is dropped.
+# Replace the 10-digit node IDs. Syntax: ZeroTier rules DSL.
+drop
+  not ethertype ipv4
+  and not ethertype arp
+  and not ethertype ipv6
+;
+accept
+  ipprotocol tcp
+  and dport 8765
+  and (sourceZeroTierAddress aaaaaaaaaa or sourceZeroTierAddress bbbbbbbbbb)
+;
+drop
+  ipprotocol tcp
+  and dport 8765
+;
+accept;

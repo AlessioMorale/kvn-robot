@@ -1,0 +1,23 @@
+[Unit]
+Description=KVN WiFi enhancement (read-only foxglove_bridge + H.264 video)
+# ZeroTier first, but optional: a failed/absent VPN is degraded mode, not an error.
+After=zerotier-one.service network-online.target
+Wants=zerotier-one.service
+# Crash-isolated from the control stack: no Requires/BindsTo/PartOf links.
+
+[Service]
+Type=simple
+User=kvn
+EnvironmentFile=/etc/kvn/kvn-ros.env
+# R5: video/bridge must not starve the control chain (4 cores: at most 1.5 cores).
+Nice=10
+CPUQuota=150%
+CPUWeight=50
+IOSchedulingClass=idle
+MemoryMax=512M
+Restart=on-failure
+RestartSec=3
+ExecStart=/bin/bash -c 'source /opt/ros/jazzy/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup kvn_wifi.launch.py'
+
+[Install]
+WantedBy=multi-user.target

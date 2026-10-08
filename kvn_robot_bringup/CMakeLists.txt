@@ -8,8 +8,13 @@ find_package(ament_cmake REQUIRED)
 # find_package(<dependency> REQUIRED)
 
 install(
-  DIRECTORY config launch test
+  DIRECTORY config launch test systemd
   DESTINATION share/${PROJECT_NAME}
+)
+
+install(
+  PROGRAMS scripts/joy_cmdvel_jitter.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)

@@ -1,0 +1,42 @@
+# Robot status for the ELRS handset: /robot_status = "<STATE>[:<CODE>]", <= 15 ASCII chars
+#   STATE: FLT (fault) > WRN (warning) > DRV (teleop enabled) > RDY
+#   Several faults (or warnings): the oldest active one is shown.
+#   An input with no update within its timeout_s (also right after startup) shows FLT:<stale_code>.
+#
+# ROS params files can't hold lists of dicts: inputs are listed by name and configured under
+# that name. Common keys: type, topic, timeout_s, code (default: NAME in upper case),
+# stale_code (default: code). See README.md for the per-type keys.
+
+kvn_status_node:
+  ros__parameters:
+    status_topic: /robot_status
+    publish_rate_hz: 2.0
+    check_period_ms: 100        # staleness polling
+    inputs: [hwmon, battery, joy]
+
+    # hwmon_diagnostic_updater_node publishes one "hwmon_diagnostic_updater_node: hwmon_status"
+    # entry at update_rate_hz (2 Hz, see hwmon.yaml): ERROR/STALE -> FLT:HWMON, WARN -> WRN:HWMON
+    hwmon:
+      type: diagnostics
+      topic: /diagnostics
+      name_contains: hwmon_status
+      code: HWMON
+      timeout_s: 3.0
+
+    # Published by hwmon_diagnostic_updater_node at update_rate_hz (2 Hz, see hwmon.yaml).
+    # 4S Li-ion, same limits as hwmon.yaml: 3.4 V/cell warn, 3.1 V/cell fault
+    battery:
+      type: battery
+      topic: /battery_state
+      code: BATT
+      warn_voltage: 13.6
+      fault_voltage: 12.4
+      timeout_s: 3.0
+
+    # crsf_joy_node publishes /joy at 50 Hz, also in failsafe. AUX1 = buttons[0] = teleop enable
+    joy:
+      type: joy
+      topic: /joy
+      enable_button: 0
+      code: JOY
+      timeout_s: 1.0

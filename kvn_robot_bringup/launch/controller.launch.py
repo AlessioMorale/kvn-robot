@@ -50,10 +50,13 @@ def generate_launch_description():
     hwmon_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'hwmon.launch.py'])
     odometry_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'odometry.launch.py'])
     teleop_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'teleop.launch.py'])
+    status_launch = PathJoinSubstitution([FindPackageShare('kvn_status'), 'launch', 'kvn_status.launch.py'])
     
     hwmon_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(hwmon_launch))
     odometry_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(odometry_launch))
     teleop_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(teleop_launch))
+    # /robot_status for the ELRS handset (reads /diagnostics, /battery_state, /joy)
+    status_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(status_launch))
     
     return LaunchDescription([
         hwmon_include,
@@ -64,5 +67,6 @@ def generate_launch_description():
         spawner_jsb,
         spawner_ssc,
         odometry_include,
-        teleop_include
+        teleop_include,
+        status_include
     ])

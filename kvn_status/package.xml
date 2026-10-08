@@ -1,18 +1,23 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>kvn_robot_bringup</name>
+  <name>kvn_status</name>
   <version>0.0.0</version>
-  <description>KVN robot briungup package</description>
+  <description>Reduces KVN robot health (diagnostics, battery, teleop enable) to a short status string for ELRS telemetry</description>
   <maintainer email="alessiomorale@gmail.com">Alessio Morale</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <exec_depend>elrs_joy_crsf_node</exec_depend>
-  <exec_depend>hwmon_diagnostic_updater</exec_depend>
-  <exec_depend>kvn_status</exec_depend>
-  <exec_depend>teleop_twist_joy</exec_depend>
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>diagnostic_msgs</depend>
+
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

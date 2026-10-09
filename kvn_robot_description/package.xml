@@ -15,8 +15,8 @@
   <exec_depend>xacro</exec_depend>
   <exec_depend>depthai-descriptions</exec_depend>
   <exec_depend>depthai-ros</exec_depend>
-  <exec_depend>rplidar_ros</exec_depend>
-
+  <exec_depend>rplidar_driver</exec_depend>
+  <exec_depend>sllidar_ros2</exec_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <test_depend>launch_testing_ament_cmake</test_depend>
   <test_depend>launch_testing_ros</test_depend>

@@ -29,3 +29,14 @@ ROS 2 Distro | Branch | Build status | Documentation | Released packages
    Uses repos file: `$NAME$.repos`
 
 1. Source build - also core ROS packages are build from source. It shows potential issues in the mid future.
+
+
+# DEPTHAI packages
+
+To install the DEPTHAI packages, run the following commands:
+
+```bash
+sudo apt install ros2-testing-apt-source
+sudo apt update
+sudo apt install ros-lyrical-depthai-ros
+```

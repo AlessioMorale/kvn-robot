@@ -54,12 +54,29 @@ controller_interface::CallbackReturn SkidSteerController::on_init()
     slip_threshold_ = node->declare_parameter<double>("slip_threshold", 0.2);
     slip_clamp_factor_ = node->declare_parameter<double>("slip_clamp_factor", 0.7);
     odometry_timeout_ = node->declare_parameter<double>("odometry_timeout", 0.5);
+    slip_compensation_enabled_ = node->declare_parameter<bool>("slip_compensation_enabled", true);
+
+    // Validate the startup values with the same rules used for runtime updates
+    const auto result = on_parameters_set(node->get_parameters(
+      {"wheel_radius", "track_width", "chi", "cmd_vel_timeout", "max_linear_acceleration",
+        "max_angular_acceleration", "slip_threshold", "slip_clamp_factor", "odometry_timeout",
+        "slip_compensation_enabled"}));
+    if (!result.successful) {
+      RCLCPP_ERROR(node->get_logger(), "Invalid parameters: %s", result.reason.c_str());
+      return controller_interface::CallbackReturn::ERROR;
+    }
+
+    parameter_callback_handle_ = node->add_on_set_parameters_callback(
+      [this](const std::vector<rclcpp::Parameter> & parameters) {
+        return on_parameters_set(parameters);
+      });
 
     RCLCPP_INFO(
       node->get_logger(),
       "SkidSteerController initialized: wheel_radius=%.3f, track_width=%.3f, chi=%.3f, "
-      "slip_threshold=%.3f, slip_clamp_factor=%.3f",
-      wheel_radius_, track_width_, chi_, slip_threshold_, slip_clamp_factor_);
+      "slip_threshold=%.3f, slip_clamp_factor=%.3f, slip_compensation=%s",
+      wheel_radius_.load(), track_width_.load(), chi_.load(), slip_threshold_.load(),
+      slip_clamp_factor_.load(), slip_compensation_enabled_ ? "on" : "off");
 
     return controller_interface::CallbackReturn::SUCCESS;
   } catch (const std::exception & e) {
@@ -67,6 +84,74 @@ controller_interface::CallbackReturn SkidSteerController::on_init()
       e.what());
     return controller_interface::CallbackReturn::ERROR;
   }
+}
+
+rcl_interfaces::msg::SetParametersResult SkidSteerController::on_parameters_set(
+  const std::vector<rclcpp::Parameter> & parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+
+  // Validate everything first so a rejected batch leaves the controller unchanged
+  for (const auto & p : parameters) {
+    const auto & name = p.get_name();
+    if (name == "slip_compensation_enabled") {
+      if (p.get_type() != rclcpp::ParameterType::PARAMETER_BOOL) {
+        result.reason = name + " must be a bool";
+      }
+      continue;
+    }
+    if (name != "wheel_radius" && name != "track_width" && name != "chi" &&
+      name != "cmd_vel_timeout" && name != "max_linear_acceleration" &&
+      name != "max_angular_acceleration" && name != "slip_threshold" &&
+      name != "slip_clamp_factor" && name != "odometry_timeout")
+    {
+      continue;
+    }
+    if (p.get_type() != rclcpp::ParameterType::PARAMETER_DOUBLE) {
+      result.reason = name + " must be a double";
+    } else if (name == "slip_clamp_factor") {
+      if (p.as_double() < 0.0 || p.as_double() > 1.0) {
+        result.reason = name + " must be in [0, 1]";
+      }
+    } else if (!(p.as_double() > 0.0)) {
+      result.reason = name + " must be > 0";
+    }
+  }
+  if (!result.reason.empty()) {
+    result.successful = false;
+    return result;
+  }
+
+  for (const auto & p : parameters) {
+    const auto & name = p.get_name();
+    if (name == "wheel_radius") {
+      wheel_radius_ = p.as_double();
+    } else if (name == "track_width") {
+      track_width_ = p.as_double();
+    } else if (name == "chi") {
+      chi_ = p.as_double();
+    } else if (name == "cmd_vel_timeout") {
+      cmd_vel_timeout_ = p.as_double();
+    } else if (name == "max_linear_acceleration") {
+      max_linear_acceleration_ = p.as_double();
+    } else if (name == "max_angular_acceleration") {
+      max_angular_acceleration_ = p.as_double();
+    } else if (name == "slip_threshold") {
+      slip_threshold_ = p.as_double();
+    } else if (name == "slip_clamp_factor") {
+      slip_clamp_factor_ = p.as_double();
+    } else if (name == "odometry_timeout") {
+      odometry_timeout_ = p.as_double();
+    } else if (name == "slip_compensation_enabled") {
+      slip_compensation_enabled_ = p.as_bool();
+    } else {
+      continue;
+    }
+    RCLCPP_INFO(get_node()->get_logger(), "Parameter %s set to %s", name.c_str(),
+      p.value_to_string().c_str());
+  }
+  return result;
 }
 
 controller_interface::CallbackReturn SkidSteerController::on_configure(
@@ -185,11 +270,12 @@ void SkidSteerController::compute_wheel_velocities(
   // and both wheels on the right move together.
 
   // Apply chi tuning factor to track_width (Session 5)
-  double d_eff = track_width_ * chi_;
+  const double wheel_radius = wheel_radius_.load();
+  double d_eff = track_width_.load() * chi_.load();
   double half_track_width_eff = d_eff / 2.0;
-  
-  double omega_left = (v_x - omega_z * half_track_width_eff) / wheel_radius_;
-  double omega_right = (v_x + omega_z * half_track_width_eff) / wheel_radius_;
+
+  double omega_left = (v_x - omega_z * half_track_width_eff) / wheel_radius;
+  double omega_right = (v_x + omega_z * half_track_width_eff) / wheel_radius;
 
   wheel_velocities[0] = omega_left;   // front_left
   wheel_velocities[1] = omega_right;  // front_right
@@ -212,9 +298,17 @@ void SkidSteerController::apply_slip_compensation(
 
   compensated_velocities = command_velocities;
 
+  if (!slip_compensation_enabled_) {
+    return;
+  }
+
+  const double wheel_radius = wheel_radius_.load();
+  const double slip_threshold = slip_threshold_.load();
+  const double slip_clamp_factor = slip_clamp_factor_.load();
+
   // Check if odometry is still fresh
   rclcpp::Duration time_since_odometry = get_node()->now() - last_odometry_timestamp_;
-  if (time_since_odometry.seconds() > odometry_timeout_) {
+  if (time_since_odometry.seconds() > odometry_timeout_.load()) {
     // No fresh odometry, skip slip detection
     return;
   }
@@ -229,36 +323,36 @@ void SkidSteerController::apply_slip_compensation(
   double ground_speed = last_ground_velocity_;
 
   // Left wheels slip ratio: average of front_left and back_left
-  double left_wheel_speed = (command_velocities[0] + command_velocities[2]) / 2.0 * wheel_radius_;
+  double left_wheel_speed = (command_velocities[0] + command_velocities[2]) / 2.0 * wheel_radius;
   double left_slip_ratio = (left_wheel_speed - ground_speed) / ground_speed;
 
   // Right wheels slip ratio: average of front_right and back_right
-  double right_wheel_speed = (command_velocities[1] + command_velocities[3]) / 2.0 * wheel_radius_;
+  double right_wheel_speed = (command_velocities[1] + command_velocities[3]) / 2.0 * wheel_radius;
   double right_slip_ratio = (right_wheel_speed - ground_speed) / ground_speed;
 
-  bool left_slipping = std::abs(left_slip_ratio) > slip_threshold_;
-  bool right_slipping = std::abs(right_slip_ratio) > slip_threshold_;
+  bool left_slipping = std::abs(left_slip_ratio) > slip_threshold;
+  bool right_slipping = std::abs(right_slip_ratio) > slip_threshold;
 
   if (left_slipping && !right_slipping) {
     // Left wheels are slipping, clamp right wheels to maintain control
-    compensated_velocities[1] *= slip_clamp_factor_;  // front_right
-    compensated_velocities[3] *= slip_clamp_factor_;  // back_right
+    compensated_velocities[1] *= slip_clamp_factor;  // front_right
+    compensated_velocities[3] *= slip_clamp_factor;  // back_right
 
     RCLCPP_WARN_THROTTLE(
       get_node()->get_logger(), *get_node()->get_clock(), 1000,
       "Left wheel slip detected (λ=%.3f, threshold=%.3f). "
       "Cross-coupling: clamping right wheels to %.1f%% of commanded velocity.",
-      left_slip_ratio, slip_threshold_, slip_clamp_factor_ * 100.0);
+      left_slip_ratio, slip_threshold, slip_clamp_factor * 100.0);
   } else if (right_slipping && !left_slipping) {
     // Right wheels are slipping, clamp left wheels to maintain control
-    compensated_velocities[0] *= slip_clamp_factor_;  // front_left
-    compensated_velocities[2] *= slip_clamp_factor_;  // back_left
+    compensated_velocities[0] *= slip_clamp_factor;  // front_left
+    compensated_velocities[2] *= slip_clamp_factor;  // back_left
 
     RCLCPP_WARN_THROTTLE(
       get_node()->get_logger(), *get_node()->get_clock(), 1000,
       "Right wheel slip detected (λ=%.3f, threshold=%.3f). "
       "Cross-coupling: clamping left wheels to %.1f%% of commanded velocity.",
-      right_slip_ratio, slip_threshold_, slip_clamp_factor_ * 100.0);
+      right_slip_ratio, slip_threshold, slip_clamp_factor * 100.0);
   }
 }
 
@@ -272,7 +366,7 @@ controller_interface::return_type SkidSteerController::update(
   double target_v_x = 0.0;
   double target_omega_z = 0.0;
   
-  if (time_since_last_command.seconds() > cmd_vel_timeout_) {
+  if (time_since_last_command.seconds() > cmd_vel_timeout_.load()) {
     // Timeout: stop motors (target is 0.0)
     RCLCPP_WARN_THROTTLE(
       get_node()->get_logger(), *get_node()->get_clock(), 2000,
@@ -287,7 +381,7 @@ controller_interface::return_type SkidSteerController::update(
   if (dt <= 0.0) dt = 0.01; // fallback
   
   double dv_x = target_v_x - current_v_x_;
-  double max_dv_x = max_linear_acceleration_ * dt;
+  double max_dv_x = max_linear_acceleration_.load() * dt;
   if (dv_x > max_dv_x) {
     current_v_x_ += max_dv_x;
   } else if (dv_x < -max_dv_x) {
@@ -297,7 +391,7 @@ controller_interface::return_type SkidSteerController::update(
   }
   
   double domega_z = target_omega_z - current_omega_z_;
-  double max_domega_z = max_angular_acceleration_ * dt;
+  double max_domega_z = max_angular_acceleration_.load() * dt;
   if (domega_z > max_domega_z) {
     current_omega_z_ += max_domega_z;
   } else if (domega_z < -max_domega_z) {

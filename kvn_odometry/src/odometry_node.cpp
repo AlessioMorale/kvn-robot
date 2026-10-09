@@ -5,6 +5,9 @@
 
 #include <cmath>
 #include <map>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/logging.hpp"
@@ -19,14 +22,26 @@ OdometryNode::OdometryNode(const rclcpp::NodeOptions & options)
   // Declare parameters with defaults
   wheel_radius_ = declare_parameter<double>("wheel_radius", 0.048);
   track_width_ = declare_parameter<double>("track_width", 0.205);
+  chi_ = declare_parameter<double>("chi", 1.0);
   base_frame_id_ = declare_parameter<std::string>("base_frame_id", "base_link");
   odom_frame_id_ = declare_parameter<std::string>("odom_frame_id", "odom");
   update_rate_ = declare_parameter<double>("update_rate", 50.0);
   use_imu_yaw_ = declare_parameter<bool>("use_imu_yaw", true);
 
+  const auto result = on_parameters_set(
+    get_parameters({"wheel_radius", "track_width", "chi", "use_imu_yaw"}));
+  if (!result.successful) {
+    throw std::invalid_argument(result.reason);
+  }
+  parameter_callback_handle_ = add_on_set_parameters_callback(
+    [this](const std::vector<rclcpp::Parameter> & parameters) {
+      return on_parameters_set(parameters);
+    });
+
   RCLCPP_INFO(get_logger(),
-    "Odometry node initialized: wheel_radius=%.3f m, track_width=%.3f m, use_imu_yaw=%s",
-    wheel_radius_, track_width_, use_imu_yaw_ ? "true" : "false");
+    "Odometry node initialized: wheel_radius=%.3f m, track_width=%.3f m, chi=%.3f, "
+    "use_imu_yaw=%s",
+    wheel_radius_, track_width_, chi_, use_imu_yaw_ ? "true" : "false");
 
   // Initialize pose with current time
   pose_state_.timestamp = now();
@@ -50,6 +65,51 @@ OdometryNode::OdometryNode(const rclcpp::NodeOptions & options)
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(this);
 
   RCLCPP_INFO(get_logger(), "Odometry node ready. Subscribing to /joint_states and /imu");
+}
+
+rcl_interfaces::msg::SetParametersResult OdometryNode::on_parameters_set(
+  const std::vector<rclcpp::Parameter> & parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+
+  // Validate everything first so a rejected batch leaves the node unchanged
+  for (const auto & p : parameters) {
+    const auto & name = p.get_name();
+    if (name == "use_imu_yaw") {
+      if (p.get_type() != rclcpp::ParameterType::PARAMETER_BOOL) {
+        result.reason = name + " must be a bool";
+      }
+    } else if (name == "wheel_radius" || name == "track_width" || name == "chi") {
+      if (p.get_type() != rclcpp::ParameterType::PARAMETER_DOUBLE) {
+        result.reason = name + " must be a double";
+      } else if (!(p.as_double() > 0.0)) {
+        result.reason = name + " must be > 0";
+      }
+    }
+  }
+  if (!result.reason.empty()) {
+    result.successful = false;
+    return result;
+  }
+
+  for (const auto & p : parameters) {
+    const auto & name = p.get_name();
+    if (name == "wheel_radius") {
+      wheel_radius_ = p.as_double();
+    } else if (name == "track_width") {
+      track_width_ = p.as_double();
+    } else if (name == "chi") {
+      chi_ = p.as_double();
+    } else if (name == "use_imu_yaw") {
+      use_imu_yaw_ = p.as_bool();
+    } else {
+      continue;
+    }
+    RCLCPP_INFO(get_logger(), "Parameter %s set to %s", name.c_str(),
+      p.value_to_string().c_str());
+  }
+  return result;
 }
 
 void OdometryNode::on_joint_state(const sensor_msgs::msg::JointState::SharedPtr msg)
@@ -152,9 +212,9 @@ void OdometryNode::compute_odometry()
     // IMU data is recent enough, use it
     omega_z = imu_yaw_rate_;
   } else {
-    // Calculate from wheel velocities
-    //   omega_z = (v_right - v_left) / track_width
-    omega_z = (v_right - v_left) / track_width_;
+    // Calculate from wheel velocities using the same effective track width as the controller
+    //   omega_z = (v_right - v_left) / (track_width * chi)
+    omega_z = (v_right - v_left) / (track_width_ * chi_);
   }
 
   // Update velocity state

@@ -49,6 +49,10 @@ skid_steer_controller:
     # When one wheel pair slips, reduce the opposite pair by this factor [0.0-1.0]
     # Default 0.7 = reduce to 70% of commanded velocity (cross-coupling compensation)
     slip_clamp_factor: 0.7
+
+    # Enable slip compensation. Set to false during kinematic calibration
+    # (can be changed at runtime via ros2 param set)
+    slip_compensation_enabled: true
     
     # Timeout for odometry messages (in seconds)
     # If no odometry received within this time, slip detection is skipped
@@ -59,6 +63,9 @@ odometry_node:
     # Kinematic parameters (should match skid_steer_controller)
     wheel_radius: 0.048
     track_width: 0.205
+
+    # Effective track width tuning factor; keep equal to skid_steer_controller's chi
+    chi: 1.0
     
     # Frame names for odometry
     base_frame_id: "base_link"
@@ -68,4 +75,6 @@ odometry_node:
     update_rate: 50.0
     
     # Use IMU for yaw rate (true) or calculate from wheels (false)
-    use_imu_yaw: true
+    # false keeps wheel odometry independent of the IMU, so the EKF does not
+    # fuse the gyro twice
+    use_imu_yaw: false

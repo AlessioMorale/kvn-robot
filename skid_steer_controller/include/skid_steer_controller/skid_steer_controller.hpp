@@ -11,8 +11,12 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "hardware_interface/handle.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "rcl_interfaces/msg/set_parameters_result.hpp"
+#include "rclcpp/node_interfaces/node_parameters_interface.hpp"
 #include "rclcpp/subscription.hpp"
 #include <array>
+#include <atomic>
+#include <vector>
 
 namespace skid_steer_controller
 {
@@ -53,6 +57,11 @@ namespace skid_steer_controller
  *   - slip_threshold (double): Slip ratio threshold for detection (default 0.2)
  *   - slip_clamp_factor (double): Reduction factor for clamped wheel velocities (default 0.7)
  *   - odometry_timeout (double): Timeout for odometry messages (default 0.5s)
+ *   - slip_compensation_enabled (bool): Enable slip cross-coupling (default true; disable
+ *     during kinematic calibration so it does not distort the commanded wheel speeds)
+ *
+ * All parameters can be changed at runtime (ros2 param set); values are validated and
+ * read lock-free from the realtime update loop.
  */
 class SkidSteerController : public controller_interface::ControllerInterface
 {
@@ -75,22 +84,28 @@ public:
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
 private:
-  /// Kinematics parameters
-  double wheel_radius_;
-  double track_width_;
-  double chi_;                         // Effective track width tuning factor (Session 5)
-  double cmd_vel_timeout_;
+  /// Kinematics parameters (atomic: written by the parameter callback, read in update())
+  std::atomic<double> wheel_radius_{0.048};
+  std::atomic<double> track_width_{0.205};
+  std::atomic<double> chi_{1.0};                // Effective track width tuning factor (Session 5)
+  std::atomic<double> cmd_vel_timeout_{1.0};
 
   /// Acceleration limits
-  double max_linear_acceleration_;
-  double max_angular_acceleration_;
+  std::atomic<double> max_linear_acceleration_{2.0};
+  std::atomic<double> max_angular_acceleration_{4.0};
   double current_v_x_{0.0};
   double current_omega_z_{0.0};
 
   /// Slip detection parameters (Session 4)
-  double slip_threshold_;           // Threshold for slip ratio detection
-  double slip_clamp_factor_;        // Reduction factor for clamped wheels
-  double odometry_timeout_;         // Odometry message timeout
+  std::atomic<double> slip_threshold_{0.2};     // Threshold for slip ratio detection
+  std::atomic<double> slip_clamp_factor_{0.7};  // Reduction factor for clamped wheels
+  std::atomic<double> odometry_timeout_{0.5};   // Odometry message timeout
+  std::atomic<bool> slip_compensation_enabled_{true};
+
+  /// Runtime parameter updates
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
+  rcl_interfaces::msg::SetParametersResult on_parameters_set(
+    const std::vector<rclcpp::Parameter> & parameters);
 
   /// Command interface handles for the 4 wheels
   std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface>>

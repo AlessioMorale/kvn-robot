@@ -6,10 +6,15 @@
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "tf2_ros/transform_broadcaster.hpp"
+
+#include <map>
+#include <string>
+#include <vector>
 
 namespace kvn_odometry
 {
@@ -28,10 +33,14 @@ namespace kvn_odometry
  * Configuration Parameters:
  *   - wheel_radius (double): Wheel radius in meters
  *   - track_width (double): Distance between left/right wheels
+ *   - chi (double): Effective track width factor, d_eff = track_width * chi (must match the
+ *     skid_steer_controller value so wheel-based yaw uses the same kinematics as the command)
  *   - base_frame_id (string): Name of robot base frame
  *   - odom_frame_id (string): Name of odometry frame
  *   - update_rate (double): Odometry update rate in Hz
  *   - use_imu_yaw (bool): Use IMU for yaw rate instead of wheel-based calculation
+ *
+ * wheel_radius, track_width, chi and use_imu_yaw can be changed at runtime (ros2 param set).
  */
 class OdometryNode : public rclcpp::Node
 {
@@ -42,10 +51,12 @@ private:
   // Parameters
   double wheel_radius_;
   double track_width_;
+  double chi_;
   std::string base_frame_id_;
   std::string odom_frame_id_;
   double update_rate_;
   bool use_imu_yaw_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
 
   // Subscriptions
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subscription_;
@@ -85,6 +96,9 @@ private:
   // Callbacks
   void on_joint_state(const sensor_msgs::msg::JointState::SharedPtr msg);
   void on_imu(const sensor_msgs::msg::Imu::SharedPtr msg);
+
+  rcl_interfaces::msg::SetParametersResult on_parameters_set(
+    const std::vector<rclcpp::Parameter> & parameters);
 
   // Odometry computation
   void compute_odometry();

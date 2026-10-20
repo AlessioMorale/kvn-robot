@@ -1,9 +1,9 @@
 # kvn_video_streamer
 
-On-demand scaled H.264 camera stream as `foxglove_msgs/CompressedVideo` (`format: "h264"`) on
+On-demand scaled H.264 video stream as `foxglove_msgs/CompressedVideo` (`format: "h264"`) on
 `/video/compressed`, for Lichtblick over the WiFi/VPN link (remote_controller design §4).
 
-Pipeline: `source_pipeline ! videoscale ! videorate drop-only ! videoconvert ! caps(WxH@fps) ! queue ! encoder ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream,alignment=au ! appsink`.
+Pipeline: `source_pipeline ! videoscale ! videorate drop-only ! videoconvert ! caps(WxH@fps) ! queue ! encoder ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream,alignment=au ! appsink`. Set `input_mode` to `image_topic` to feed the same pipeline from a ROS `sensor_msgs/Image` topic instead of a GStreamer source.
 
 Stream guarantees: Annex B, no B-frames, key frame at most every `keyframe_interval_s` (default 1 s) with SPS/PPS repeated before each IDR, bitrate capped by `bitrate_kbps`.
 
@@ -24,7 +24,9 @@ The pipeline runs only while the topic has subscribers (polled every `poll_perio
 
 | Name | Default | Meaning |
 |---|---|---|
-| `source_pipeline` | `v4l2src device=/dev/video0` | gst-launch fragment producing raw video; `videotestsrc is-live=true` for tests; add `! image/jpeg ! jpegdec` for MJPEG cameras |
+| `input_mode` | `gstreamer` | `gstreamer` reads `source_pipeline`; `image_topic` subscribes to a ROS image topic |
+| `image_topic` | `/camera/image_raw` | `sensor_msgs/Image` input when `input_mode: image_topic`; currently supports `bgr8`, `rgb8`, `bgra8`, `rgba8`, and `mono8` |
+| `source_pipeline` | `v4l2src device=/dev/video0` | gst-launch fragment producing raw video in `gstreamer` mode; `videotestsrc is-live=true` for tests; add `! image/jpeg ! jpegdec` for MJPEG cameras |
 | `width`, `height` | 640, 480 | output size (even numbers) |
 | `framerate` | 15 | output frame rate (frames dropped, never duplicated) |
 | `bitrate_kbps` | 1000 | bitrate cap |
@@ -47,8 +49,9 @@ The pipeline runs only while the topic has subscribers (polled every `poll_perio
 
 ```bash
 ros2 launch kvn_video_streamer video_streamer.launch.py source_pipeline:="videotestsrc is-live=true"
+ros2 launch kvn_video_streamer video_streamer.launch.py input_mode:=image_topic image_topic:=/camera/image_raw
 colcon test --packages-select kvn_video_streamer
 ```
 
-Tests: `test_h264_inspect` and `test_pipeline_config` (pure unit tests), `test_stream` (node with videotestsrc + x264enc: Annex B, no B slices, IDR spacing <= 1 s, SPS/PPS before each IDR, stop with no subscribers, fast key frame for a late subscriber; with `webrtcsink` installed also the valve gating and the fallback when WebRTC fails, skipped otherwise).
+Tests: `test_h264_inspect` and `test_pipeline_config` (pure unit tests), `test_stream` (node with videotestsrc + x264enc and a ROS image topic: Annex B, no B slices, IDR spacing <= 1 s, SPS/PPS before each IDR, stop with no subscribers, fast key frame for a late subscriber; with `webrtcsink` installed also the valve gating and the fallback when WebRTC fails, skipped otherwise).
 Needs GStreamer base/good/ugly (x264enc)/bad (h264parse) plugins.

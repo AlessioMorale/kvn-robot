@@ -3,13 +3,17 @@ robot:
   base_width: 0.096
   base_height: 0.046
   base_z_off: 0.02
-  wheel_radius: 0.0325
+  # Wheel radius and track must match the calibrated values in kvn_robot_bringup/config/controllers.yaml
+  # (wheel_radius 0.048, track_width 0.205): wheel centres sit at y = +-0.1025 (left = +y).
+  # The URDF places the left wheel at wheel_left_y_off - wheel_width/2 and the right at
+  # wheel_right_y_off + wheel_width/2.
+  wheel_radius: 0.048
   wheel_width: 0.02
-  wheel_z_off: 0.0325
+  wheel_z_off: 0.048
   wheel_front_x_off: 0.05
   wheel_back_x_off: -0.05
-  wheel_left_y_off: -0.05
-  wheel_right_y_off: 0.05
+  wheel_left_y_off: 0.1125
+  wheel_right_y_off: -0.1125
   camera_pos_x: 0.074
   camera_pos_y: 0.0
   camera_pos_z: 0.10

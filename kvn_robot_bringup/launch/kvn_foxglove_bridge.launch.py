@@ -55,6 +55,22 @@ def generate_launch_description():
             description="Topics visible to clients (list of ECMAScript regexes)",
         ),
         DeclareLaunchArgument(
+            "capabilities",
+            default_value=str(READ_ONLY_CAPABILITIES),
+            description="Bridge capabilities. Add 'clientPublish' (with client_topic_whitelist) "
+            "to allow teleop from Lichtblick. Simulation only: rule R1 keeps WiFi read-only.",
+        ),
+        DeclareLaunchArgument(
+            "client_topic_whitelist",
+            default_value=str(NOTHING),
+            description="Topics clients may publish (needs the clientPublish capability)",
+        ),
+        DeclareLaunchArgument(
+            "use_sim_time",
+            default_value="false",
+            description="Stamp with /clock; set true when running the simulation",
+        ),
+        DeclareLaunchArgument(
             "send_buffer_limit",
             default_value="4000000",
             description="Per-client send buffer limit in bytes; older messages are dropped",
@@ -81,11 +97,11 @@ def generate_launch_description():
                 "address": LaunchConfiguration("address"),
                 "port": ParameterValue(LaunchConfiguration("port"), value_type=int),
                 "tls": False,
-                "capabilities": READ_ONLY_CAPABILITIES,
+                "capabilities": LaunchConfiguration("capabilities"),
                 "topic_whitelist": LaunchConfiguration("topic_whitelist"),
                 "service_whitelist": NOTHING,
                 "param_whitelist": NOTHING,
-                "client_topic_whitelist": NOTHING,
+                "client_topic_whitelist": LaunchConfiguration("client_topic_whitelist"),
                 "asset_uri_allowlist": NOTHING,
                 "send_buffer_limit": ParameterValue(
                     LaunchConfiguration("send_buffer_limit"), value_type=int
@@ -95,7 +111,7 @@ def generate_launch_description():
                     LaunchConfiguration("max_qos_depth"), value_type=int
                 ),
                 "include_hidden": False,
-                "use_sim_time": False,
+                "use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool),
                 "remote_access": False,
                 "sysinfo": False,
                 "publish_client_count": False,

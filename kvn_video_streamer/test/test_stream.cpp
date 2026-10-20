@@ -15,11 +15,12 @@
 #include <thread>
 #include <vector>
 
+#include <gst/gst.h>
 #include "foxglove_msgs/msg/compressed_video.hpp"
 #include "kvn_video_streamer/h264_inspect.hpp"
 #include "kvn_video_streamer/video_streamer_node.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include <gst/gst.h>
+#include "sensor_msgs/msg/image.hpp"
 
 using namespace std::chrono_literals;
 using foxglove_msgs::msg::CompressedVideo;
@@ -47,9 +48,10 @@ public:
       topic, rclcpp::QoS(10).reliable(),
       [this](CompressedVideo::ConstSharedPtr msg)
       {
-        frames.push_back(Frame{
-          rclcpp::Time(msg->timestamp).seconds(), msg->format, msg->frame_id,
-          h264::inspect_access_unit(msg->data)});
+        frames.push_back(
+          Frame{
+            rclcpp::Time(msg->timestamp).seconds(), msg->format, msg->frame_id,
+            h264::inspect_access_unit(msg->data)});
       });
   }
   std::vector<Frame> frames;
@@ -212,6 +214,52 @@ TEST_F(StreamTest, NewSubscriberGetsKeyFrameQuickly)
       break;
     }
   }
+}
+
+TEST_F(StreamTest, StreamsRosImageTopic)
+{
+  const std::string image_topic = "/test_image_" + std::to_string(getpid());
+  const auto image_publisher =
+    client_->create_publisher<sensor_msgs::msg::Image>(image_topic, rclcpp::SensorDataQoS());
+
+  rclcpp::NodeOptions options;
+  options.parameter_overrides({
+    {"input_mode", "image_topic"},
+    {"image_topic", image_topic},
+    {"width", 320},
+    {"height", 240},
+    {"framerate", kFps},
+    {"bitrate_kbps", 500},
+    {"frame_id", "test_image"},
+    {"topic", topic_},
+    {"poll_period_ms", 100},
+  });
+  streamer_ = std::make_shared<VideoStreamerNode>(options);
+  executor_.add_node(streamer_);
+  Collector collector(client_, topic_);
+  ASSERT_TRUE(spin_until([&]() { return streamer_->is_streaming(); }, 5s));
+
+  sensor_msgs::msg::Image image;
+  image.width = 320;
+  image.height = 240;
+  image.encoding = "bgr8";
+  image.is_bigendian = false;
+  image.step = image.width * 3 + 8;
+  image.data.resize(static_cast<std::size_t>(image.step) * image.height, 0x40);
+
+  const auto deadline = std::chrono::steady_clock::now() + 10s;
+  while (collector.frames.size() < 10 && std::chrono::steady_clock::now() < deadline)
+  {
+    image_publisher->publish(image);
+    executor_.spin_some(10ms);
+    std::this_thread::sleep_for(40ms);
+  }
+  ASSERT_GE(collector.frames.size(), 10U)
+    << "no video frames received from the image topic; pipeline: "
+    << streamer_->pipeline_description();
+  EXPECT_EQ(collector.frames.front().format, "h264");
+  EXPECT_EQ(collector.frames.front().frame_id, "test_image");
+  EXPECT_TRUE(collector.frames.front().info.has_idr);
 }
 
 TEST_F(StreamTest, BrokenSourceDoesNotCrash)

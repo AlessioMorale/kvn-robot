@@ -2,6 +2,9 @@
 # Baseline from design §4: 640x480 @ 15 fps, 1 Mbps, key frame every 1 s.
 video_streamer:
   ros__parameters:
+    # "gstreamer" uses source_pipeline; "image_topic" streams sensor_msgs/Image instead.
+    input_mode: "gstreamer"
+    image_topic: "/camera/image_raw"
     # gst-launch fragment that produces raw video. For an MJPEG-only USB camera
     # use e.g. "v4l2src device=/dev/video0 ! image/jpeg,framerate=30/1 ! jpegdec".
     # For tests: "videotestsrc is-live=true pattern=ball".

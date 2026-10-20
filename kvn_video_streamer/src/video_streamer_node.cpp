@@ -3,8 +3,11 @@
 
 #include "kvn_video_streamer/video_streamer_node.hpp"
 
+#include <gst/app/gstappsrc.h>
 #include <gst/video/video-event.h>
 
+#include <cstring>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -14,6 +17,41 @@ namespace kvn_video_streamer
 namespace
 {
 constexpr const char * kSinkName = "kvn_sink";
+constexpr const char * kAppsrcName = "kvn_image_source";
+
+bool image_format(const std::string & encoding, const char *& format, std::size_t & channels)
+{
+  if (encoding == "bgr8")
+  {
+    format = "BGR";
+    channels = 3;
+  }
+  else if (encoding == "rgb8")
+  {
+    format = "RGB";
+    channels = 3;
+  }
+  else if (encoding == "bgra8")
+  {
+    format = "BGRA";
+    channels = 4;
+  }
+  else if (encoding == "rgba8")
+  {
+    format = "RGBA";
+    channels = 4;
+  }
+  else if (encoding == "mono8")
+  {
+    format = "GRAY8";
+    channels = 1;
+  }
+  else
+  {
+    return false;
+  }
+  return true;
+}
 }  // namespace
 
 VideoStreamerNode::VideoStreamerNode(const rclcpp::NodeOptions & options)
@@ -46,11 +84,28 @@ VideoStreamerNode::VideoStreamerNode(const rclcpp::NodeOptions & options)
     declare_parameter<int64_t>("webrtc.max_bitrate_kbps", config_.webrtc.max_bitrate_kbps));
   webrtc_retry_ = std::chrono::seconds(declare_parameter<int64_t>("webrtc.retry_s", 10));
   frame_id_ = declare_parameter<std::string>("frame_id", "camera");
+  input_mode_ = declare_parameter<std::string>("input_mode", "gstreamer");
+  image_topic_ = declare_parameter<std::string>("image_topic", "/camera/image_raw");
   const auto topic = declare_parameter<std::string>("topic", "/video/compressed");
   const auto qos_depth = declare_parameter<int64_t>("qos_depth", 5);
   const auto poll_period_ms = declare_parameter<int64_t>("poll_period_ms", 200);
   retry_delay_ = std::chrono::milliseconds(declare_parameter<int64_t>("retry_delay_ms", 2000));
 
+  if (input_mode_ != "gstreamer" && input_mode_ != "image_topic")
+  {
+    throw std::invalid_argument(
+      "kvn_video_streamer: input_mode must be 'gstreamer' or 'image_topic'");
+  }
+  if (input_mode_ == "image_topic")
+  {
+    if (image_topic_.empty())
+    {
+      throw std::invalid_argument("kvn_video_streamer: image_topic must not be empty");
+    }
+    config_.source_pipeline = std::string("appsrc name=") + kAppsrcName +
+                              " is-live=true format=time do-timestamp=true block=false"
+                              " max-buffers=2 leaky-type=downstream";
+  }
   if (const auto error = validate(config_))
   {
     throw std::invalid_argument("kvn_video_streamer: " + *error);
@@ -65,6 +120,13 @@ VideoStreamerNode::VideoStreamerNode(const rclcpp::NodeOptions & options)
   RCLCPP_INFO(get_logger(), "pipeline: %s", pipeline_description_.c_str());
   publisher_ = create_publisher<foxglove_msgs::msg::CompressedVideo>(
     topic, rclcpp::QoS(rclcpp::KeepLast(static_cast<std::size_t>(qos_depth))).reliable());
+  if (input_mode_ == "image_topic")
+  {
+    image_subscription_ = create_subscription<sensor_msgs::msg::Image>(
+      image_topic_, rclcpp::SensorDataQoS(),
+      [this](sensor_msgs::msg::Image::ConstSharedPtr image) { on_image(image); });
+    RCLCPP_INFO(get_logger(), "using ROS image topic '%s' as video input", image_topic_.c_str());
+  }
   poll_timer_ =
     create_wall_timer(std::chrono::milliseconds(poll_period_ms), [this]() { on_poll(); });
 }
@@ -177,6 +239,18 @@ bool VideoStreamerNode::start_pipeline(bool with_webrtc)
     gst_object_unref(pipeline);
     return false;
   }
+  GstElement * source = nullptr;
+  if (input_mode_ == "image_topic")
+  {
+    source = gst_bin_get_by_name(GST_BIN(pipeline), kAppsrcName);
+    if (source == nullptr)
+    {
+      RCLCPP_ERROR(get_logger(), "appsrc '%s' not found in pipeline", kAppsrcName);
+      gst_object_unref(sink);
+      gst_object_unref(pipeline);
+      return false;
+    }
+  }
 
   webrtc_active_ = with_webrtc;
   webrtc_error_ = false;
@@ -186,6 +260,10 @@ bool VideoStreamerNode::start_pipeline(bool with_webrtc)
     if (valve_ == nullptr)
     {
       RCLCPP_ERROR(get_logger(), "valve '%s' not found in pipeline", kValveName);
+      if (source != nullptr)
+      {
+        gst_object_unref(source);
+      }
       gst_object_unref(sink);
       gst_object_unref(pipeline);
       webrtc_active_ = false;
@@ -204,8 +282,17 @@ bool VideoStreamerNode::start_pipeline(bool with_webrtc)
   {
     RCLCPP_ERROR(get_logger(), "pipeline failed to start (source device busy or missing?)");
     check_bus();  // log the error message, if any
+    if (source != nullptr)
+    {
+      gst_object_unref(source);
+    }
     stop_pipeline();
     return false;
+  }
+  {
+    std::lock_guard<std::mutex> lock(appsrc_mutex_);
+    appsrc_ = source;
+    appsrc_caps_key_.clear();
   }
   streaming_.store(true);
   last_subscriber_count_ = 0;
@@ -219,7 +306,14 @@ void VideoStreamerNode::stop_pipeline()
     return;
   }
   // Blocks until the streaming threads stopped: no sample callback after this.
+  std::lock_guard<std::mutex> lock(appsrc_mutex_);
   gst_element_set_state(pipeline_, GST_STATE_NULL);
+  if (appsrc_ != nullptr)
+  {
+    gst_object_unref(appsrc_);
+    appsrc_ = nullptr;
+  }
+  appsrc_caps_key_.clear();
   if (valve_ != nullptr)
   {
     gst_object_unref(valve_);
@@ -231,6 +325,92 @@ void VideoStreamerNode::stop_pipeline()
   appsink_ = nullptr;
   pipeline_ = nullptr;
   streaming_.store(false);
+}
+
+void VideoStreamerNode::on_image(const sensor_msgs::msg::Image::ConstSharedPtr & image)
+{
+  const char * format = nullptr;
+  std::size_t channels = 0;
+  if (!image_format(image->encoding, format, channels))
+  {
+    RCLCPP_WARN_ONCE(
+      get_logger(), "unsupported image encoding '%s'; expected bgr8, rgb8, bgra8, rgba8, or mono8",
+      image->encoding.c_str());
+    return;
+  }
+  if (
+    image->width == 0 || image->height == 0 ||
+    image->width > static_cast<uint32_t>(std::numeric_limits<int>::max()) ||
+    image->height > static_cast<uint32_t>(std::numeric_limits<int>::max()))
+  {
+    RCLCPP_WARN_ONCE(get_logger(), "ignoring image with invalid dimensions");
+    return;
+  }
+
+  const std::size_t width = image->width;
+  const std::size_t height = image->height;
+  if (width > std::numeric_limits<std::size_t>::max() / channels)
+  {
+    RCLCPP_WARN_ONCE(get_logger(), "ignoring image whose row size overflows");
+    return;
+  }
+  const std::size_t row_bytes = width * channels;
+  const std::size_t step = image->step;
+  if (step < row_bytes)
+  {
+    RCLCPP_WARN_ONCE(get_logger(), "ignoring image with an invalid row stride");
+    return;
+  }
+  if (
+    height > std::numeric_limits<std::size_t>::max() / step || image->data.size() < step * height ||
+    height > std::numeric_limits<std::size_t>::max() / row_bytes)
+  {
+    RCLCPP_WARN_ONCE(get_logger(), "ignoring image with an invalid row stride or data size");
+    return;
+  }
+
+  const std::string caps_key =
+    std::string(format) + ":" + std::to_string(image->width) + "x" + std::to_string(image->height);
+  std::lock_guard<std::mutex> lock(appsrc_mutex_);
+  if (appsrc_ == nullptr)
+  {
+    return;
+  }
+  if (caps_key != appsrc_caps_key_)
+  {
+    GstCaps * caps = gst_caps_new_simple(
+      "video/x-raw", "format", G_TYPE_STRING, format, "width", G_TYPE_INT,
+      static_cast<int>(image->width), "height", G_TYPE_INT, static_cast<int>(image->height),
+      nullptr);
+    gst_app_src_set_caps(GST_APP_SRC(appsrc_), caps);
+    gst_caps_unref(caps);
+    appsrc_caps_key_ = caps_key;
+  }
+
+  GstBuffer * buffer = gst_buffer_new_allocate(nullptr, row_bytes * height, nullptr);
+  if (buffer == nullptr)
+  {
+    RCLCPP_ERROR(get_logger(), "failed to allocate GStreamer image buffer");
+    return;
+  }
+  GstMapInfo map{};
+  if (!gst_buffer_map(buffer, &map, GST_MAP_WRITE))
+  {
+    RCLCPP_ERROR(get_logger(), "failed to map GStreamer image buffer");
+    gst_buffer_unref(buffer);
+    return;
+  }
+  for (std::size_t row = 0; row < height; ++row)
+  {
+    std::memcpy(map.data + row * row_bytes, image->data.data() + row * step, row_bytes);
+  }
+  gst_buffer_unmap(buffer, &map);
+  const GstFlowReturn result = gst_app_src_push_buffer(GST_APP_SRC(appsrc_), buffer);
+  if (result != GST_FLOW_OK && result != GST_FLOW_FLUSHING)
+  {
+    RCLCPP_WARN(
+      get_logger(), "GStreamer rejected image frame (flow status %d)", static_cast<int>(result));
+  }
 }
 
 void VideoStreamerNode::request_keyframe()

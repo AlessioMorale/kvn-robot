@@ -78,3 +78,7 @@ odometry_node:
     # false keeps wheel odometry independent of the IMU, so the EKF does not
     # fuse the gyro twice
     use_imu_yaw: false
+
+    # fuse (kvn_ekf) owns odom -> base_link; wheel odometry only feeds it via /odom.
+    # Set to true when running without the fusion stack.
+    publish_tf: false

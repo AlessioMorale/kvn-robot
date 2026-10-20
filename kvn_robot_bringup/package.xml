@@ -3,7 +3,7 @@
 <package format="3">
   <name>kvn_robot_bringup</name>
   <version>0.0.0</version>
-  <description>KVN robot briungup package</description>
+  <description>Slamming Works KVN rover simulation and hardware bring-up</description>
   <maintainer email="alessiomorale@gmail.com">Alessio Morale</maintainer>
   <license>MIT</license>
 
@@ -16,6 +16,18 @@
   <exec_depend>sllidar_ros2</exec_depend>
   <exec_depend>foxglove_bridge</exec_depend>
   <exec_depend>kvn_video_streamer</exec_depend>
+  <exec_depend>kvn_ekf</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>nav2_map_server</exec_depend>
+  <exec_depend>spatio_temporal_voxel_layer</exec_depend>
+  <exec_depend>depthai_ros_driver</exec_depend>
+  <exec_depend>topic_tools</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>nav2_minimal_tb3_sim</exec_depend>
+  <exec_depend>explore_lite</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>gz_ros2_control</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

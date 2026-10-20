@@ -27,6 +27,8 @@ OdometryNode::OdometryNode(const rclcpp::NodeOptions & options)
   odom_frame_id_ = declare_parameter<std::string>("odom_frame_id", "odom");
   update_rate_ = declare_parameter<double>("update_rate", 50.0);
   use_imu_yaw_ = declare_parameter<bool>("use_imu_yaw", true);
+  // Disable when another node (the fuse odometry publisher) owns odom -> base_link
+  publish_tf_ = declare_parameter<bool>("publish_tf", true);
 
   const auto result = on_parameters_set(
     get_parameters({"wheel_radius", "track_width", "chi", "use_imu_yaw"}));
@@ -291,6 +293,10 @@ void OdometryNode::publish_odometry_and_tf()
 
   // Publish
   odom_publisher_->publish(std::move(odom_msg));
+
+  if (!publish_tf_) {
+    return;
+  }
 
   // Broadcast TF: odom -> base_link
   auto transform = geometry_msgs::msg::TransformStamped();

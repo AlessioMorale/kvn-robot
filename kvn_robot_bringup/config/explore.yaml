@@ -1,0 +1,16 @@
+# explore_lite (m-explore-ros2): frontier exploration on top of slam_toolbox + Nav2.
+# It reads slam_toolbox's /map and sends NavigateToPose goals to the closest useful frontier.
+/**:
+  ros__parameters:
+    robot_base_frame: base_link
+    costmap_topic: map
+    costmap_updates_topic: map_updates   # slam_toolbox does not publish updates; /map alone is enough
+    visualize: true                      # frontier markers on explore/frontiers (RViz/Foxglove)
+    planner_frequency: 0.3               # [Hz] how often a new frontier goal is chosen
+    progress_timeout: 20.0               # [s] give up on a goal without progress, blacklist it
+    potential_scale: 3.0                 # prefer nearby frontiers
+    orientation_scale: 0.0
+    gain_scale: 1.0                      # prefer large frontiers
+    transform_tolerance: 0.3
+    min_frontier_size: 0.3               # [m] ignore frontiers narrower than the rover can use
+    return_to_init: true                 # drive back to the start pose when nothing is left

@@ -39,6 +39,7 @@ namespace kvn_odometry
  *   - odom_frame_id (string): Name of odometry frame
  *   - update_rate (double): Odometry update rate in Hz
  *   - use_imu_yaw (bool): Use IMU for yaw rate instead of wheel-based calculation
+ *   - publish_tf (bool): Broadcast odom -> base_link; set false when fuse publishes it
  *
  * wheel_radius, track_width, chi and use_imu_yaw can be changed at runtime (ros2 param set).
  */
@@ -56,6 +57,7 @@ private:
   std::string odom_frame_id_;
   double update_rate_;
   bool use_imu_yaw_;
+  bool publish_tf_;
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
 
   // Subscriptions

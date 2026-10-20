@@ -1,0 +1,33 @@
+repositories:
+  remote_controller:
+    type: git
+    url: git@github.com:AlessioMorale/r36s_remote_controller.git
+    version: main
+  src/sllidar_ros2:
+    type: git
+    url: https://github.com/Slamtec/sllidar_ros2.git
+    version: main
+  src/elrs_joy:
+    type: git
+    url: git@github.com:AlessioMorale/ros_elrs_joy.git
+    version: main
+  src/kvn-robot:
+    type: git
+    url: git@github.com:AlessioMorale/kvn-robot.git
+    version: main
+  src/deps/m-explore-ros2:
+    type: git
+    url: https://github.com/robo-friends/m-explore-ros2.git
+    version: main
+  src/ros_ddsm_servo:
+    type: git
+    url: git@github.com:AlessioMorale/ros_ddsm_servo.git
+    version: lyrical-migration
+  src/ros_hwmon_diagnostic_updater:
+    type: git
+    url: git@github.com:AlessioMorale/ros_hwmon_diagnostic_updater.git
+    version: mani
+  src/ros_ism330_imu:
+    type: git
+    url: git@github.com:AlessioMorale/ros_ism330_imu.git
+    version: main

@@ -26,6 +26,11 @@ slam_toolbox:
     use_async_mode: true
     mode: mapping
 
+    # Frames: odom -> base_link comes from fuse (kvn_ekf), slam_toolbox publishes map -> odom
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+
     # Topic names
     scan_topic: /scan
     tf_buffer_duration: 30.0

@@ -18,11 +18,13 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <string>
 
 #include "foxglove_msgs/msg/compressed_video.hpp"
 #include "kvn_video_streamer/pipeline_config.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/image.hpp"
 
 namespace kvn_video_streamer
 {
@@ -42,6 +44,7 @@ public:
 
 private:
   void on_poll();
+  void on_image(const sensor_msgs::msg::Image::ConstSharedPtr & image);
   bool start_pipeline(bool with_webrtc);
   void stop_pipeline();
   void request_keyframe();
@@ -52,15 +55,21 @@ private:
 
   StreamConfig config_;
   std::string frame_id_;
+  std::string input_mode_;
+  std::string image_topic_;
+  std::string appsrc_caps_key_;
   std::string pipeline_description_;
   std::chrono::milliseconds retry_delay_;
 
   rclcpp::Publisher<foxglove_msgs::msg::CompressedVideo>::SharedPtr publisher_;
+  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_subscription_;
   rclcpp::TimerBase::SharedPtr poll_timer_;
 
   GstElement * pipeline_{nullptr};
   GstElement * appsink_{nullptr};
+  GstElement * appsrc_{nullptr};
   GstElement * valve_{nullptr};
+  std::mutex appsrc_mutex_;
   bool foxglove_open_{false};
   // True while the running pipeline includes the WebRTC branch. After a WebRTC error the pipeline
   // restarts without it (Foxglove only, on demand) and WebRTC is retried after webrtc_retry_.

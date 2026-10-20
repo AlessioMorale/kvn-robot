@@ -21,6 +21,17 @@
   <!-- Wheels -->
   <xacro:macro name="wheel" params="prefix name x_off y_off z_off wheel_radius wheel_width">
     <link name="${prefix}${name}_link">
+      <!-- Gazebo needs a mass; no effect on the real robot -->
+      <xacro:cylinder_inertial radius="${wheel_radius}" length="${wheel_width}" mass="0.15">
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+      </xacro:cylinder_inertial>
+      <!-- The wheels are the only ground contact in simulation (base box sits above the floor) -->
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_width}" />
+        </geometry>
+      </collision>
       <visual>
         <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
         <geometry>
@@ -42,6 +53,9 @@
   <xacro:macro name="kvn_rover" params="prefix robot_props">
     <!-- Define robot constants -->
     <link name="base_link">
+      <xacro:box_inertial x="${robot_props['robot']['base_length']}" y="${robot_props['robot']['base_width']}" z="${robot_props['robot']['base_height']}" mass="1.5">
+        <origin xyz="0.0 0.0 ${robot_props['robot']['base_z_off'] + robot_props['robot']['base_height'] / 2}" rpy="0 0 0" />
+      </xacro:box_inertial>
       <collision>
         <geometry>
           <box

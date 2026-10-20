@@ -12,6 +12,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(foxglove_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0)
 find_package(ament_cmake_gtest QUIET)
@@ -36,6 +37,7 @@ target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   ${PROJECT_NAME}_core
   rclcpp::rclcpp
   ${foxglove_msgs_TARGETS}
+  sensor_msgs::sensor_msgs
   PkgConfig::GST)
 
 add_executable(video_streamer_node src/video_streamer_main.cpp)
@@ -59,7 +61,7 @@ if(BUILD_TESTING)
     # Runs the node with videotestsrc + x264enc and checks the stream.
     ament_add_gtest(${PROJECT_NAME}_test_stream test/test_stream.cpp TIMEOUT 120)
     if(TARGET ${PROJECT_NAME}_test_stream)
-      target_link_libraries(${PROJECT_NAME}_test_stream ${PROJECT_NAME}_lib)
+      target_link_libraries(${PROJECT_NAME}_test_stream ${PROJECT_NAME}_lib sensor_msgs::sensor_msgs)
     endif()
   endif()
 endif()

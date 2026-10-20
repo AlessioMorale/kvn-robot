@@ -19,6 +19,16 @@ def generate_launch_description():
         default_value="v4l2src device=/dev/video0",
         description='GStreamer source fragment (e.g. "videotestsrc is-live=true")',
     )
+    input_mode_arg = DeclareLaunchArgument(
+        "input_mode",
+        default_value="gstreamer",
+        description="Input source: 'gstreamer' or 'image_topic'",
+    )
+    image_topic_arg = DeclareLaunchArgument(
+        "image_topic",
+        default_value="/camera/image_raw",
+        description="sensor_msgs/Image topic used when input_mode is 'image_topic'",
+    )
 
     webrtc_arg = DeclareLaunchArgument(
         "webrtc",
@@ -34,9 +44,13 @@ def generate_launch_description():
             LaunchConfiguration("config"),
             {
                 "source_pipeline": LaunchConfiguration("source_pipeline"),
+                "input_mode": LaunchConfiguration("input_mode"),
+                "image_topic": LaunchConfiguration("image_topic"),
                 "webrtc.enabled": ParameterValue(LaunchConfiguration("webrtc"), value_type=bool),
             },
         ],
         output="screen",
     )
-    return LaunchDescription([config_arg, source_arg, webrtc_arg, video_streamer])
+    return LaunchDescription(
+        [config_arg, source_arg, input_mode_arg, image_topic_arg, webrtc_arg, video_streamer]
+    )

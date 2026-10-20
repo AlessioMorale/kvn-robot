@@ -1,43 +1,30 @@
+"""Hardware bring-up (used by systemd kvn-control.service): drive, odometry, teleop, sensors, SLAM, Nav2.
+
+Real robot only: starts the DDSM210 drive hardware, the ELRS receiver, the lidar and the OAK camera.
+For the simulation use sim_nav_stack.launch.py.
+"""
 from launch import LaunchDescription
-from launch_ros.parameter_descriptions import ParameterValue
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.substitutions import LaunchConfiguration, Command, PathJoinSubstitution
-from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
+
 
 def generate_launch_description():
-    use_mock_hardware_arg = DeclareLaunchArgument(
-        'use_mock_hardware', default_value='false'
-    )
-    use_mock_hardware = LaunchConfiguration('use_mock_hardware')
-    
-    kvn_robot_bringup_dir = FindPackageShare('kvn_robot_bringup')
-    kvn_robot_description_dir = FindPackageShare('kvn_robot_description')
-    urdf_file = PathJoinSubstitution([kvn_robot_description_dir, 'urdf', 'kvn_rover.urdf.xacro'])
-    
-    robot_description_content = Command(['xacro ', urdf_file, ' use_mock_hardware:=', use_mock_hardware])
-    
-    robot_state_publisher = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        parameters=[{'robot_description': ParameterValue(robot_description_content, value_type=str)}]
-    )
-    
-    controller_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'controller.launch.py'])
-    slam_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'slam.launch.py'])
-    
-    controller_include = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(controller_launch)
-    )
-    
-    slam_include = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(slam_launch)
-    )
-    
-    return LaunchDescription([
-        use_mock_hardware_arg,
-        robot_state_publisher,
-        controller_include,
-        slam_include
-    ])
+    bringup = FindPackageShare('kvn_robot_bringup')
+
+    def include(name, **args):
+        return IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(PathJoinSubstitution([bringup, 'launch', name])),
+            launch_arguments=args.items())
+
+    use_mock_hardware_arg = DeclareLaunchArgument('use_mock_hardware', default_value='false')
+    use_nav2_arg = DeclareLaunchArgument(
+        'use_nav2', default_value='true', description='Start Nav2 on top of fuse + slam_toolbox')
+
+    # robot_state_publisher, ros2_control, odometry, teleop, hwmon, status
+    controller = include('controller.launch.py', use_mock_hardware=LaunchConfiguration('use_mock_hardware'))
+    # fuse (odom -> base_link), lidar, slam_toolbox (map -> odom), depth camera, Nav2
+    nav_stack = include('nav_stack.launch.py', use_nav2=LaunchConfiguration('use_nav2'))
+
+    return LaunchDescription([use_mock_hardware_arg, use_nav2_arg, controller, nav_stack])

@@ -3,7 +3,7 @@
 <package format="3">
   <name>kvn_video_streamer</name>
   <version>0.0.0</version>
-  <description>On-demand scaled H.264 camera stream as foxglove_msgs/CompressedVideo</description>
+  <description>Slamming Works on-demand KVN rover video stream from GStreamer or ROS images</description>
   <maintainer email="alessiomorale@gmail.com">Alessio Morale</maintainer>
   <license>MIT</license>
 
@@ -12,6 +12,7 @@
 
   <depend>rclcpp</depend>
   <depend>foxglove_msgs</depend>
+  <depend>sensor_msgs</depend>
   <build_depend>libgstreamer1.0-dev</build_depend>
   <build_depend>libgstreamer-plugins-base1.0-dev</build_depend>
   <exec_depend>gstreamer1.0-plugins-base</exec_depend>

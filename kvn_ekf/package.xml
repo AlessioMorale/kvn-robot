@@ -3,7 +3,7 @@
 <package format="3">
   <name>kvn_ekf</name>
   <version>0.2.0</version>
-  <description>Multi-sensor fusion using locusrobotics/fuse (odometry + IMU)</description>
+  <description>Slamming Works KVN rover sensor fusion using fuse (odometry and IMU)</description>
   <maintainer email="alessio@example.com">Alessio Morale</maintainer>
   <license>MIT</license>
 

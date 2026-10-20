@@ -3,7 +3,7 @@
 <package format="3">
   <name>kvn_odometry</name>
   <version>0.0.0</version>
-  <description>Odometry node for KVN rover with wheel encoder and IMU fusion</description>
+  <description>Slamming Works KVN rover wheel odometry node</description>
   <maintainer email="alessiomorale@gmail.com">Alessio Morale</maintainer>
   <license>MIT</license>
 

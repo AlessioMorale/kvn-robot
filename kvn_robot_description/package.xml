@@ -3,7 +3,7 @@
 <package format="3">
   <name>kvn_robot_description</name>
   <version>0.0.0</version>
-  <description>KVN robot description</description>
+  <description>Slamming Works KVN rover description, meshes and visualization files</description>
   <maintainer email="alessiomorale@gmail.com">Alessio Morale</maintainer>
   <license>MIT</license>
 

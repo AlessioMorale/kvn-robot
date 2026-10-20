@@ -42,7 +42,7 @@ ROS params files can't hold lists of dicts, so inputs are listed by name and con
 
 | Name | Default | Description |
 |---|---|---|
-| `<name>.type` | — | `diagnostics`, `battery` or `joy` |
+| `<name>.type` | none | `diagnostics`, `battery` or `joy` |
 | `<name>.topic` | per type | Topic to subscribe to |
 | `<name>.timeout_s` | per type | Staleness timeout (and startup grace) |
 | `<name>.code` | `<NAME>` upper case | Code shown with `WRN`/`FLT` |

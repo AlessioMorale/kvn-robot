@@ -3,7 +3,7 @@
 <package format="3">
   <name>kvn_status</name>
   <version>0.0.0</version>
-  <description>Reduces KVN robot health (diagnostics, battery, teleop enable) to a short status string for ELRS telemetry</description>
+  <description>Slamming Works KVN rover health summary for ELRS telemetry</description>
   <maintainer email="alessiomorale@gmail.com">Alessio Morale</maintainer>
   <license>MIT</license>
 

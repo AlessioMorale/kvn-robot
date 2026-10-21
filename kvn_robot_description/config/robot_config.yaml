@@ -4,27 +4,28 @@ robot:
   base_height: 0.046
   base_z_off: 0.02
   # Wheel radius and track must match the calibrated values in kvn_robot_bringup/config/controllers.yaml
-  # (wheel_radius 0.048, track_width 0.205): wheel centres sit at y = +-0.1025 (left = +y).
+  # (wheel_radius 0.03625, track_width 0.125): wheel centres sit at y = +-0.0625 (left = +y),
+  # with 0.140 m outer width across tyres (wheel_width 0.015).
   # The URDF places the left wheel at wheel_left_y_off - wheel_width/2 and the right at
   # wheel_right_y_off + wheel_width/2.
-  wheel_radius: 0.048
-  wheel_width: 0.02
-  wheel_z_off: 0.048
+  wheel_radius: 0.03625
+  wheel_width: 0.015
+  wheel_z_off: 0.03625
   wheel_front_x_off: 0.05
   wheel_back_x_off: -0.05
-  wheel_left_y_off: 0.1125
-  wheel_right_y_off: -0.1125
+  wheel_left_y_off: 0.070
+  wheel_right_y_off: -0.070
   camera_pos_x: 0.074
   camera_pos_y: 0.0
   camera_pos_z: 0.10
   camera_pitch: 0.0
   lidar_pos_x: 0.03
-  lidar_pos_y: -0.004
+  lidar_pos_y: 0.0
   lidar_pos_z: 0.115
-  # ISM330DHCX: 10 cm behind, 5 cm right of base_link; axes aligned (X fwd, Y left, Z up)
-  imu_pos_x: -0.10
-  imu_pos_y: -0.05
-  imu_pos_z: 0.0
+  # ISM330DHCX: black PCB under the battery bay near the rear-right wheel; axes aligned (X fwd, Y left, Z up)
+  imu_pos_x: -0.05
+  imu_pos_y: -0.03
+  imu_pos_z: 0.025
   imu_roll: 0.0
   imu_pitch: 0.0
   imu_yaw: 0.0

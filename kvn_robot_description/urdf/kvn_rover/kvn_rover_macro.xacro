@@ -66,15 +66,15 @@
       </collision>
       <visual>
         <!-- <origin xyz="${0.164/2-0.03} ${0.096/2} ${0.0915/2}" rpy="0 0 ${pi}" /> -->
-        <origin xyz="${0.164/2-0.03} ${0.096/2+0.013} ${0.01+robot_props['robot']['base_z_off']}"
+        <origin xyz="${0.164/2-0.03} ${0.096/2+0.0125} ${0.01+robot_props['robot']['base_z_off']}"
           rpy="0 0 ${pi}" />
         <geometry>
           <mesh filename="package://kvn_robot_description/meshes/kvn_rover/visual/kvn_body.stl"
             scale="1 1 1" />
-          <material name="green">
-            <color rgba="0.1 0.4 0.1 1" />
-          </material>
         </geometry>
+        <material name="green">
+          <color rgba="0.1 0.4 0.1 1" />
+        </material>
       </visual>
     </link>
     <!-- Robot Footprint -->
@@ -110,9 +110,6 @@
         <geometry>
           <cylinder radius="0.025" length="0.03" />
         </geometry>
-        <material name="Black">
-          <color rgba="0.0 0.0 0.0 1" />
-        </material>
         <origin xyz="0.0 0.0 0.0" />
       </collision>
       <visual>
@@ -121,10 +118,10 @@
         <geometry>
           <mesh filename="package://kvn_robot_description/meshes/kvn_rover/visual/lidar_c1m1.stl"
             scale="1 1 1" />
-          <material name="Black">
-            <color rgba="0.0 0.0 0.0 1" />
-          </material>
         </geometry>
+        <material name="Black">
+          <color rgba="0.0 0.0 0.0 1" />
+        </material>
       </visual>
 
     </link>

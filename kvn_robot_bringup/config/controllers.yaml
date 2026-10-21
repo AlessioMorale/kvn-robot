@@ -21,8 +21,8 @@ controller_manager:
 skid_steer_controller:
   ros__parameters:
     # Kinematic parameters (in meters)
-    wheel_radius: 0.048
-    track_width: 0.205
+    wheel_radius: 0.03625
+    track_width: 0.125
     
     # Effective track width tuning factor (Session 5)
     # d_eff = track_width * chi
@@ -61,8 +61,8 @@ skid_steer_controller:
 odometry_node:
   ros__parameters:
     # Kinematic parameters (should match skid_steer_controller)
-    wheel_radius: 0.048
-    track_width: 0.205
+    wheel_radius: 0.03625
+    track_width: 0.125
 
     # Effective track width tuning factor; keep equal to skid_steer_controller's chi
     chi: 1.0

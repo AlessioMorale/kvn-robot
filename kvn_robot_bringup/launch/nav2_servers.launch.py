@@ -19,7 +19,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     params = ParameterFile(
         RewrittenYaml(
-            source_file=LaunchConfiguration('params_file'),
+            source_file=LaunchConfiguration('nav2_params_file'),
             root_key='',
             param_rewrites={'use_sim_time': use_sim_time},
             convert_types=True),
@@ -50,7 +50,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument(
-            'params_file',
+            'nav2_params_file',
             default_value=PathJoinSubstitution([FindPackageShare('kvn_robot_bringup'), 'config', 'nav2_params.yaml'])),
         *actions,
     ])

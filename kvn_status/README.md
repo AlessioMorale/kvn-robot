@@ -7,7 +7,7 @@ ros2 launch kvn_status kvn_status.launch.py            # uses config/kvn_status.
 ros2 run kvn_status kvn_status_node --ros-args --params-file my_status.yaml
 ```
 
-Started from `kvn_robot_bringup/launch/controller.launch.py` (disable with `use_status:=false`).
+Started from `kvn_robot_bringup/launch/robot_base.launch.py` (disable with `use_status:=false`).
 
 ## Output
 

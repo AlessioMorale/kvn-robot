@@ -1,0 +1,21 @@
+# OAK-D-Lite driver (depthai_ros_driver) for the rover: point cloud for the STVL costmap layer only.
+# The stock driver.yaml runs everything at 640x400, 30 Hz. Depth at 320x200 overruns the device's
+# stereo memory (E_OUT_OF_MEM), so the CPU saving comes from the frame rate and from skipping subpixel.
+/**:
+  ros__parameters:
+    driver:
+      i_enable_ir: true
+      i_pipeline_auto_calibration_mode: ''
+    pipeline_gen:
+      i_pipeline_type: RGBD
+      i_enable_rgbd: true
+      i_nn_type: none        # no neural network: the cloud is all the rover needs
+    rgb:
+      i_fps: 10.0
+    left:
+      i_fps: 10.0
+    right:
+      i_fps: 10.0
+    stereo:
+      i_fps: 10.0
+      i_subpixel: false

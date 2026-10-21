@@ -3,8 +3,8 @@
 | File | Purpose |
 |---|---|
 | `kvn-ros.env` | shared environment, includes `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` (DDS never crosses the VPN) |
-| `kvn-control.service` | control stack (`mini_mvp_complete.launch.py`), `Nice=-5`, never depends on ZeroTier |
-| `kvn-wifi.service` | `kvn_wifi.launch.py` (bridge + video): `Nice=10`, `CPUQuota=150%`, `After=`/`Wants=zerotier-one.service` |
+| `kvn-control.service` | control stack (`robot.launch.py`), `Nice=-5`, never depends on ZeroTier |
+| `kvn-wifi.service` | `wifi_link.launch.py` (bridge + video): `Nice=10`, `CPUQuota=150%`, `After=`/`Wants=zerotier-one.service` |
 | `kvn-webrtc-signalling.service` | `gst-webrtc-signalling-server` on TCP 8443 for the optional WebRTC video: `Nice=10`, `CPUQuota=20%`, `Restart=always` |
 | `nftables-kvn.conf` | table `inet kvn`: TCP 8765 and 8443 accepted on `zt*` only, dropped elsewhere; nothing else touched |
 | `zerotier-flow-rules.example` | optional ZeroTier Central flow rules |
@@ -31,7 +31,7 @@ sudo install -m 0755 gst-webrtc-signalling-server /opt/kvn/gst-rs/bin/
 sudo install -m 0644 libgstrswebrtc.so libgstrsrtp.so /opt/kvn/gst-rs/lib/gstreamer-1.0/
 ```
 
-Then start the streamer with `webrtc:=true` (`ros2 launch kvn_robot_bringup kvn_wifi.launch.py webrtc:=true`). The camera then stays open and `webrtcsink` encodes only while a viewer is connected. If WebRTC fails, the streamer falls back to the on-demand Foxglove stream and retries WebRTC every 10 s. The media itself flows over UDP on random ports; only TCP 8443 is filtered here, so rely on ZeroTier for the rest.
+Then start the streamer with `webrtc:=true` (`ros2 launch kvn_robot_bringup wifi_link.launch.py webrtc:=true`). The camera then stays open and `webrtcsink` encodes only while a viewer is connected. If WebRTC fails, the streamer falls back to the on-demand Foxglove stream and retries WebRTC every 10 s. The media itself flows over UDP on random ports; only TCP 8443 is filtered here, so rely on ZeroTier for the rest.
 
 Other ROS 2 shells on the robot should `set -a; . /etc/kvn/kvn-ros.env; set +a` too.
 

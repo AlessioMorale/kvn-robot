@@ -1,6 +1,7 @@
+"""HARDWARE ONLY - drive base: robot_state_publisher, ros2_control, wheel odometry, IMU, teleop, hwmon, status."""
 from launch import LaunchDescription
 from launch_ros.parameter_descriptions import ParameterValue
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription
 from launch.substitutions import LaunchConfiguration, Command, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -47,17 +48,18 @@ def generate_launch_description():
         arguments=['--controller-manager', '/controller_manager', '--controller-manager-timeout', '20', 'skid_steer_controller']
     )
     
-    hwmon_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'hwmon.launch.py'])
-    odometry_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'odometry.launch.py'])
-    teleop_launch = PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'teleop.launch.py'])
-    status_launch = PathJoinSubstitution([FindPackageShare('kvn_status'), 'launch', 'kvn_status.launch.py'])
-    
-    hwmon_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(hwmon_launch))
-    odometry_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(odometry_launch))
-    teleop_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(teleop_launch))
+    def include(launch_file):
+        # Scoped: launch arguments declared by an included file (e.g. params_file) must not leak
+        return GroupAction([IncludeLaunchDescription(PythonLaunchDescriptionSource(launch_file))], scoped=True)
+
+    hwmon_include = include(PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'hardware_monitor.launch.py']))
+    odometry_include = include(PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'wheel_odometry.launch.py']))
+    teleop_include = include(PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'teleop.launch.py']))
+    # /imu (ISM330DHCX on SPI0), read by wheel odometry and fuse
+    imu_include = include(PathJoinSubstitution([FindPackageShare('ism330dhcx_node'), 'launch', 'ism330dhcx.launch.py']))
     # /robot_status for the ELRS handset (reads /diagnostics, /battery_state, /joy)
-    status_include = IncludeLaunchDescription(PythonLaunchDescriptionSource(status_launch))
-    
+    status_include = include(PathJoinSubstitution([FindPackageShare('kvn_status'), 'launch', 'kvn_status.launch.py']))
+
     return LaunchDescription([
         hwmon_include,
         use_mock_hardware_arg,
@@ -67,6 +69,7 @@ def generate_launch_description():
         spawner_jsb,
         spawner_ssc,
         odometry_include,
+        imu_include,
         teleop_include,
         status_include
     ])

@@ -13,7 +13,8 @@
   <exec_depend>hwmon_diagnostic_updater</exec_depend>
   <exec_depend>kvn_status</exec_depend>
   <exec_depend>teleop_twist_joy</exec_depend>
-  <exec_depend>sllidar_ros2</exec_depend>
+  <exec_depend>rplidar_driver</exec_depend>
+  <exec_depend>ism330dhcx_node</exec_depend>
   <exec_depend>foxglove_bridge</exec_depend>
   <exec_depend>kvn_video_streamer</exec_depend>
   <exec_depend>kvn_ekf</exec_depend>
@@ -22,7 +23,6 @@
   <exec_depend>nav2_map_server</exec_depend>
   <exec_depend>spatio_temporal_voxel_layer</exec_depend>
   <exec_depend>depthai_ros_driver</exec_depend>
-  <exec_depend>topic_tools</exec_depend>
   <exec_depend>ros_gz_sim</exec_depend>
   <exec_depend>nav2_minimal_tb3_sim</exec_depend>
   <exec_depend>explore_lite</exec_depend>

@@ -7,19 +7,19 @@ Wants=zerotier-one.service kvn-webrtc-signalling.service
 
 [Service]
 Type=simple
-User=kvn
+User=alessio
 EnvironmentFile=/etc/kvn/kvn-ros.env
 # gst-plugins-rs (webrtcsink), only used when the streamer runs with webrtc:=true
 Environment=GST_PLUGIN_PATH=/opt/kvn/gst-rs/lib/gstreamer-1.0
 # R5: video/bridge must not starve the control chain (4 cores: at most 1.5 cores).
 Nice=10
-CPUQuota=150%
+CPUQuota=100%
 CPUWeight=50
 IOSchedulingClass=idle
 MemoryMax=512M
 Restart=on-failure
 RestartSec=3
-ExecStart=/bin/bash -c 'source /opt/ros/jazzy/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup kvn_wifi.launch.py'
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup wifi_link.launch.py'
 
 [Install]
 WantedBy=multi-user.target

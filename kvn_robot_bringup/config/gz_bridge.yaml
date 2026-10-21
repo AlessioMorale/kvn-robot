@@ -17,8 +17,8 @@
   gz_type_name: gz.msgs.IMU
   direction: GZ_TO_ROS
 
-# Same topic STVL reads on the real robot (depth_camera.launch.py relays to it)
-- ros_topic_name: /camera/depth/points
+# Same topic the OAK driver publishes on the real robot (STVL reads it)
+- ros_topic_name: /oak/rgbd/points
   gz_topic_name: /camera/points
   ros_type_name: sensor_msgs/msg/PointCloud2
   gz_type_name: gz.msgs.PointCloudPacked

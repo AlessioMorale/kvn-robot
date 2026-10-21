@@ -9,7 +9,9 @@
 
 fixed_lag_smoother_node:
   ros__parameters:
-    optimization_frequency: 30.0
+    # Cost scales with how often the graph is re-solved and with the constraints in the lag window:
+    # 30 Hz + the raw 223 Hz IMU took ~50% of a core, 10 Hz + a 50 Hz IMU takes ~25%.
+    optimization_frequency: 10.0
     transaction_timeout: 0.01
     lag_duration: 0.5
 
@@ -54,6 +56,7 @@ fixed_lag_smoother_node:
 
     imu_sensor:
       topic: imu
+      throttle_period: 0.02   # fuse at 50 Hz instead of the sensor's ~223 Hz
       angular_velocity_dimensions: ['yaw']
       twist_target_frame: base_link
       remove_gravitational_acceleration: false

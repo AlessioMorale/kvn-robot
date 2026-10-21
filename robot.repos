@@ -3,10 +3,6 @@ repositories:
     type: git
     url: git@github.com:AlessioMorale/r36s_remote_controller.git
     version: main
-  src/sllidar_ros2:
-    type: git
-    url: https://github.com/Slamtec/sllidar_ros2.git
-    version: main
   src/elrs_joy:
     type: git
     url: git@github.com:AlessioMorale/ros_elrs_joy.git

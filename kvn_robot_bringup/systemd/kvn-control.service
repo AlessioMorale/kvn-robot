@@ -5,14 +5,14 @@ After=network.target kvn-ina3221.service
 
 [Service]
 Type=simple
-User=kvn
+User=alessio
 EnvironmentFile=/etc/kvn/kvn-ros.env
 # Control path: normal-or-better priority, never throttled.
 Nice=-5
 CPUWeight=500
 Restart=on-failure
 RestartSec=2
-ExecStart=/bin/bash -c 'source /opt/ros/jazzy/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup mini_mvp_complete.launch.py'
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup robot.launch.py'
 
 [Install]
 WantedBy=multi-user.target

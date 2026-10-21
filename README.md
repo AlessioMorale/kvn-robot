@@ -49,7 +49,7 @@ ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}}"
 ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/Twist "{angular: {z: 0.5}}"
 
 # Check the chain: wheel odom -> fuse -> SLAM map
-ros2 topic hz /odom /odom_ekf /scan /imu /camera/depth/points
+ros2 topic hz /odom /odom_ekf /scan /imu /oak/rgbd/points
 ros2 run tf2_tools view_frames          # expect map -> odom -> base_link
 ros2 topic echo /map --once --field info
 
@@ -76,29 +76,32 @@ ros2 topic pub --once /explore/resume std_msgs/msg/Bool "{data: false}"   # paus
 
 In the TurtleBot3 World the lidar sees most of the arena from the start, so the map barely grows. The rover mainly visits the small unknown pockets behind the pillars. For a longer exploration run, use a larger world.
 
-To watch it, connect Foxglove to the bridge (`kvn_foxglove_bridge.launch.py`) or run RViz on the same machine with `use_sim_time:=true`.
+To watch it, connect Foxglove to the bridge (`foxglove_bridge.launch.py`) or run RViz on the same machine with `use_sim_time:=true`.
 
 Everything uses `/clock`, so run any extra node with `--ros-args -p use_sim_time:=true`. The robot parameters (`wheel_radius`, `track_width`) in `controllers.yaml` must match the simulated geometry in `kvn_robot_description/config/robot_config.yaml`, otherwise sim odometry and yaw will be off.
 
 The hardware bring-up entry point is:
 
 ```bash
-ros2 launch kvn_robot_bringup mini_mvp_complete.launch.py
+ros2 launch kvn_robot_bringup robot.launch.py
 ```
 
-That launch file starts real hardware components (drive motors, ELRS receiver, lidar, OAK camera), then fuse odometry, slam_toolbox and Nav2. Check the device paths and configuration before using it on a rover. Pass `use_nav2:=false` to run without Nav2.
+That launch file starts real hardware components (drive motors, ELRS receiver, IMU, lidar, OAK camera), then fuse odometry, slam_toolbox and Nav2. Check the device paths and configuration before using it on a rover. Pass `use_nav2:=false` to run without Nav2.
 
 Launch files in `kvn_robot_bringup/launch`:
 
 | Launch file | Runs on | Starts |
 |---|---|---|
-| `mini_mvp_complete` | Robot | Everything below (the systemd entry point). |
-| `controller` | Robot | robot_state_publisher, ros2_control, wheel odometry, teleop, hwmon, status. |
-| `nav_stack` | Robot, or simulation with `use_sim_time:=true use_hw_sensors:=false` | fuse, lidar, slam_toolbox, depth camera, Nav2. |
-| `nav2`, `depth_camera`, `odometry`, `teleop`, `hwmon` | Robot | One subsystem each. |
-| `kvn_wifi`, `kvn_foxglove_bridge` | Robot (the bridge also works in simulation) | WiFi access point; read-only Foxglove/Lichtblick bridge. |
+| `robot` | Robot | `robot_base` + `robot_sensors` + `nav_stack`, each node started once (the systemd entry point). |
+| `robot_base` | Robot | robot_state_publisher, ros2_control, wheel odometry, IMU, teleop, hwmon, status. |
+| `robot_sensors` | Robot | RPLIDAR C1 and OAK-D-Lite depth camera. |
+| `nav_stack` | Robot, or simulation with `use_sim_time:=true` | fuse, slam_toolbox, Nav2. Needs `/odom`, `/imu`, `/scan` and the point cloud from the layers above. |
+| `nav2_servers`, `oak_camera`, `wheel_odometry`, `teleop`, `hardware_monitor` | Robot | One subsystem each. |
+| `wifi_link`, `foxglove_bridge` | Robot (the bridge also works in simulation) | WiFi access point; read-only Foxglove/Lichtblick bridge. |
 | `sim_nav_stack` | **Simulation only** | `sim_headless` plus `nav_stack`. |
 | `sim_headless` | **Simulation only** | gz-sim, rover, sensor bridge, controllers, wheel odometry. |
+
+Run `robot` alone, or its layers separately; do not start `robot` together with `robot_base`, `robot_sensors` or `nav_stack`, which would duplicate nodes.
 
 | Package | Role |
 |---|---|

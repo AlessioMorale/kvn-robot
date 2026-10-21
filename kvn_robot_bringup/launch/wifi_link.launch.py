@@ -16,7 +16,7 @@ def generate_launch_description():
     bridge = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution(
-                [FindPackageShare("kvn_robot_bringup"), "launch", "kvn_foxglove_bridge.launch.py"]
+                [FindPackageShare("kvn_robot_bringup"), "launch", "foxglove_bridge.launch.py"]
             )
         ),
         launch_arguments={

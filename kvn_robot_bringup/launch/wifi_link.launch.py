@@ -1,8 +1,9 @@
 """
 Opt-in WiFi enhancement: read-only foxglove_bridge + on-demand video streamer.
 
-Not part of the control stack. Run it as its own (low priority) process, see
-systemd/kvn-wifi.service. Arguments of the two included launch files are forwarded.
+Not part of the control stack. On the robot systemd runs the two halves as separate low-priority
+units (systemd/kvn-foxglove.service, kvn-video.service); this launch file starts both by hand.
+Arguments of the two included launch files are forwarded.
 """
 
 from launch import LaunchDescription

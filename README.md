@@ -92,7 +92,7 @@ Launch files in `kvn_robot_bringup/launch`:
 
 | Launch file | Runs on | Starts |
 |---|---|---|
-| `robot` | Robot | `robot_base` + `robot_sensors` + `nav_stack`, each node started once (the systemd entry point). |
+| `robot` | Robot | `robot_base` + `robot_sensors` + `nav_stack`, each node started once. On the robot, systemd runs the layers as separate units instead (see `kvn_robot_bringup/systemd/README.md`). |
 | `robot_base` | Robot | robot_state_publisher, ros2_control, wheel odometry, IMU, teleop, hwmon, status. |
 | `robot_sensors` | Robot | RPLIDAR C1 and OAK-D-Lite depth camera. |
 | `nav_stack` | Robot, or simulation with `use_sim_time:=true` | fuse, slam_toolbox, Nav2. Needs `/odom`, `/imu`, `/scan` and the point cloud from the layers above. |

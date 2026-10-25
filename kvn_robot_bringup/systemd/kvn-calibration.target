@@ -1,0 +1,9 @@
+[Unit]
+Description=KVN mode: odometry calibration (locomotion, sensors, one calibration run)
+Wants=kvn-control.service kvn-sensors.service kvn-calibration.service
+After=kvn-control.service kvn-sensors.service
+# One mode at a time. Units outside this mode stop through their own Conflicts= on this target.
+# The WiFi viewers (kvn-foxglove or kvn-foxglove-control, kvn-video) are not part of any mode.
+Conflicts=kvn-drive.target kvn-nav.target kvn-explore.target
+# The run exits when done; the mode then stays as locomotion + sensors until another mode is started.
+# No [Install]: never at boot.

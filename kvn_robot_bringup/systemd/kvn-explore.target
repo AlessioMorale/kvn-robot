@@ -1,0 +1,11 @@
+[Unit]
+Description=KVN mode: autonomous exploration (navigation + explore_lite)
+Wants=kvn-control.service kvn-sensors.service kvn-nav.service kvn-explore.service
+After=kvn-control.service kvn-sensors.service kvn-nav.service kvn-explore.service
+# One mode at a time. Units outside this mode stop through their own Conflicts= on this target.
+# The WiFi viewers (kvn-foxglove or kvn-foxglove-control, kvn-video) are not part of any mode.
+Conflicts=kvn-drive.target kvn-nav.target kvn-calibration.target
+
+# The rover drives off on its own: only enable this for unattended exploration at boot.
+[Install]
+WantedBy=multi-user.target

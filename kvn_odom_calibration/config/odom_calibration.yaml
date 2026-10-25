@@ -1,0 +1,41 @@
+odom_calibration:
+  ros__parameters:
+    # Reference for the true motion of each run:
+    #   scan: ICP between the stationary lidar scans before and after the run (default)
+    #   tf:   reference_frame -> base_link from TF, e.g. map from slam_toolbox
+    reference: scan
+    reference_frame: map
+    # Gyro: closes the loop on the spin angle and seeds the scan match (whole turns)
+    use_imu: true
+
+    # Straight runs alternate forward / back, spins alternate CCW / CW.
+    # Needs straight_distance + ~0.35 m free in front of and behind the rover.
+    straight_distance: 1.0     # [m]
+    straight_runs: 4
+    linear_speed: 0.15         # [m/s]
+    spin_angle: 6.283185       # [rad] a full turn: start and end scans see the same view
+    spin_runs: 4
+    angular_speed: 0.6         # [rad/s]
+    settle_time: 1.5           # [s] standing still before each scan (also gyro bias)
+    start_delay: 3.0           # [s] after the warning, before the first run
+
+    # Scan matching
+    max_scan_range: 8.0        # [m]
+    voxel_size: 0.03           # [m]
+    icp_max_correspondence: 0.3  # [m]
+    min_inlier_ratio: 0.6      # runs whose scan match is worse are discarded
+    min_observability: 0.03    # straight runs along a featureless corridor are discarded
+    max_gyro_disagreement: 0.26  # [rad] spins whose scan match is this far off the gyro are discarded
+
+    # Abort if the lidar sees something in the path of the next run
+    check_clearance: true
+    robot_half_length: 0.09    # [m] footprint, as in nav2_params.yaml
+    robot_half_width: 0.07
+    clearance_margin: 0.25
+
+    controller_node: /skid_steer_controller
+    odometry_node: /odometry_node
+    disable_slip_compensation: true  # restored on exit
+    # Set the fitted wheel_radius / chi on both nodes at runtime (not saved to controllers.yaml)
+    apply_results: false
+    output_dir: ~/.ros/odom_calibration

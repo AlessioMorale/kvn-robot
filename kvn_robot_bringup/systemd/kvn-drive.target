@@ -1,0 +1,10 @@
+[Unit]
+Description=KVN mode: RC driving only (lidar, SLAM and Nav2 off)
+Wants=kvn-control.service
+After=kvn-control.service
+# One mode at a time. Units outside this mode stop through their own Conflicts= on this target.
+# The WiFi viewers (kvn-foxglove or kvn-foxglove-control, kvn-video) are not part of any mode.
+Conflicts=kvn-nav.target kvn-explore.target kvn-calibration.target
+
+[Install]
+WantedBy=multi-user.target

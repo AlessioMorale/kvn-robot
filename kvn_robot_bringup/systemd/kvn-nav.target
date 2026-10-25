@@ -1,0 +1,10 @@
+[Unit]
+Description=KVN mode: localisation and navigation (locomotion, sensors, fuse, slam_toolbox, Nav2)
+Wants=kvn-control.service kvn-sensors.service kvn-nav.service
+After=kvn-control.service kvn-sensors.service kvn-nav.service
+# One mode at a time. Units outside this mode stop through their own Conflicts= on this target.
+# The WiFi viewers (kvn-foxglove or kvn-foxglove-control, kvn-video) are not part of any mode.
+Conflicts=kvn-drive.target kvn-explore.target kvn-calibration.target
+
+[Install]
+WantedBy=multi-user.target

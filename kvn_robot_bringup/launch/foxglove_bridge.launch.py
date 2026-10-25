@@ -4,7 +4,8 @@ Read-only foxglove_bridge for the handheld's Lichtblick view (design §4, §8, r
 WiFi must never command the robot, so the bridge only exposes viewing:
   * no clientPublish, services, parameters, parametersSubscribe, assets or connectionGraph
     capability; every client-facing whitelist except topics never matches;
-  * topics limited to the Lichtblick layout (`topic_whitelist` launch arg);
+  * topics limited to the Lichtblick layout plus the map / scan / plans / frontiers for watching
+    navigation and exploration (`topic_whitelist` launch arg);
   * bounded per-client send buffer so a slow WiFi link drops data instead of
     growing memory on the robot;
   * Foxglove remote access (cloud gateway) off: the bridge is only reachable
@@ -30,6 +31,21 @@ LAYOUT_TOPICS = [
     "^/diagnostics$",
 ]
 
+# Localisation / navigation / exploration (kvn-nav, kvn-explore). View only, like the rest; the
+# bridge only sends a topic while a client subscribes to it.
+NAV_TOPICS = [
+    "^/tf$",
+    "^/tf_static$",
+    "^/robot_description$",
+    "^/scan$",
+    "^/odom_ekf$",
+    "^/map$",
+    "^/(global|local)_costmap/costmap$",
+    "^/(global|local)_costmap/published_footprint$",
+    "^/(local_)?plan$",
+    "^/explore/(frontiers|status)$",
+]
+
 # Never matches anything: the idiom foxglove_bridge itself uses for "nothing",
 # because an empty list cannot be passed as a typed string-array parameter.
 NOTHING = ["(?!)"]
@@ -51,7 +67,7 @@ def generate_launch_description():
         DeclareLaunchArgument("port", default_value="8765", description="WebSocket port"),
         DeclareLaunchArgument(
             "topic_whitelist",
-            default_value=str(LAYOUT_TOPICS),
+            default_value=str(LAYOUT_TOPICS + NAV_TOPICS),
             description="Topics visible to clients (list of ECMAScript regexes)",
         ),
         DeclareLaunchArgument(

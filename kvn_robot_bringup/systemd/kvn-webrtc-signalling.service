@@ -1,7 +1,7 @@
 [Unit]
 Description=KVN WebRTC signalling server (gst-plugins-rs), for the video stream
 After=network.target
-# Optional, like kvn-wifi.service: the control stack never depends on it.
+# Optional, like kvn-video.service: the control stack never depends on it.
 
 [Service]
 Type=simple

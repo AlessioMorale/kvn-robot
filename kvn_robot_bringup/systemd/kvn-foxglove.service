@@ -1,0 +1,25 @@
+[Unit]
+Description=KVN read-only foxglove_bridge (TCP 8765) for Lichtblick/Foxglove over WiFi
+# ZeroTier first, but optional: a failed/absent VPN is degraded mode, not an error.
+After=zerotier-one.service network-online.target
+Wants=zerotier-one.service
+# Crash-isolated from the control stack: no Requires/BindsTo/PartOf links.
+# Same port as kvn-foxglove-control.service (bridge that may command the rover): one or the other.
+Conflicts=kvn-foxglove-control.service
+
+[Service]
+Type=simple
+User=alessio
+EnvironmentFile=/etc/kvn/kvn-ros.env
+# R5: the bridge must not starve the control chain.
+Nice=10
+CPUQuota=50%
+CPUWeight=50
+IOSchedulingClass=idle
+MemoryMax=256M
+Restart=on-failure
+RestartSec=3
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup foxglove_bridge.launch.py'
+
+[Install]
+WantedBy=multi-user.target

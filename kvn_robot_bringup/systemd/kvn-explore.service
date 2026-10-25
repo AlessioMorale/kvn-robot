@@ -1,0 +1,18 @@
+[Unit]
+Description=KVN autonomous frontier exploration (explore_lite)
+# Sends Nav2 goals on slam_toolbox's map; stopped together with kvn-nav.service
+Requires=kvn-nav.service
+After=kvn-nav.service
+Conflicts=kvn-calibration.service kvn-drive.target kvn-nav.target kvn-calibration.target
+
+[Service]
+Type=simple
+User=alessio
+EnvironmentFile=/etc/kvn/kvn-ros.env
+Nice=5
+CPUWeight=100
+Restart=on-failure
+RestartSec=5
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup explore.launch.py'
+
+# No [Install]: started by kvn-explore.target (or by hand).

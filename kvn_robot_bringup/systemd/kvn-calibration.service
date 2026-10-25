@@ -1,0 +1,21 @@
+[Unit]
+Description=KVN odometry calibration run (kvn_odom_calibration: drives the rover, fits wheel_radius and chi)
+# Needs the drive base and the lidar; navigation is stopped (Conflicts in kvn-nav/kvn-explore)
+Requires=kvn-control.service kvn-sensors.service
+After=kvn-control.service kvn-sensors.service kvn-nav.service kvn-explore.service
+Conflicts=kvn-nav.service kvn-explore.service kvn-drive.target kvn-nav.target kvn-explore.target
+
+[Service]
+# One run: `systemctl start` returns when the calibration is done (a few minutes).
+Type=oneshot
+TimeoutStartSec=15min
+User=alessio
+EnvironmentFile=/etc/kvn/kvn-ros.env
+# Extra node parameters, e.g. `sudo systemctl set-environment KVN_CALIBRATION_ARGS="-p apply_results:=true"`
+Environment=KVN_CALIBRATION_ARGS=
+CPUWeight=200
+# ros2 run, not ros2 launch: an aborted run must fail the unit (ros2 launch exits 0 regardless)
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 run kvn_odom_calibration odom_calibration --ros-args --params-file "$(ros2 pkg prefix kvn_odom_calibration)/share/kvn_odom_calibration/config/odom_calibration.yaml" ${KVN_CALIBRATION_ARGS}'
+# Results: journalctl -u kvn-calibration, and ~/.ros/odom_calibration/ of User=
+
+# No [Install]: started by hand only, never at boot.

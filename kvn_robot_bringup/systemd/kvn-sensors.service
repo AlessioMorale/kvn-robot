@@ -1,0 +1,18 @@
+[Unit]
+Description=KVN perception sensors (robot_sensors: RPLIDAR C1, OAK-D-Lite)
+# Frames come from robot_state_publisher in kvn-control.service
+After=network.target kvn-control.service
+Wants=kvn-control.service
+# Off in the RC-driving-only mode
+Conflicts=kvn-drive.target
+
+[Service]
+Type=simple
+User=alessio
+EnvironmentFile=/etc/kvn/kvn-ros.env
+CPUWeight=200
+Restart=on-failure
+RestartSec=3
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup robot_sensors.launch.py'
+
+# No [Install]: started by the kvn-*.target modes (or by hand).

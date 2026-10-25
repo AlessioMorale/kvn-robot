@@ -1,0 +1,27 @@
+[Unit]
+Description=KVN foxglove_bridge with CONTROL (TCP 8765): teleop /cmd_vel and Nav2 goals /goal_pose from Foxglove
+# ZeroTier first, but optional: a failed/absent VPN is degraded mode, not an error.
+After=zerotier-one.service network-online.target
+Wants=zerotier-one.service
+# Crash-isolated from the control stack: no Requires/BindsTo/PartOf links.
+# Same port as the read-only bridge: one or the other. Opt-in exception to rule R1.
+# foxglove_bridge 3.6.2 does not enforce client_topic_whitelist: clients may publish ANY topic.
+# Only enable it where everyone who can reach TCP 8765 over ZeroTier may drive the rover.
+Conflicts=kvn-foxglove.service
+
+[Service]
+Type=simple
+User=alessio
+EnvironmentFile=/etc/kvn/kvn-ros.env
+# R5: the bridge must not starve the control chain.
+Nice=10
+CPUQuota=50%
+CPUWeight=50
+IOSchedulingClass=idle
+MemoryMax=256M
+Restart=on-failure
+RestartSec=3
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup foxglove_control.launch.py'
+
+[Install]
+WantedBy=multi-user.target

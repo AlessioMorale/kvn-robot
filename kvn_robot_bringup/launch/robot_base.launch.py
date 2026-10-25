@@ -42,10 +42,13 @@ def generate_launch_description():
         arguments=['--controller-manager', '/controller_manager', '--controller-manager-timeout', '20', 'joint_state_broadcaster']
     )
     
+    # --param-file: the controller node does not inherit the controller_manager's parameters, without
+    # it skid_steer_controller runs on its compiled-in defaults (wheel_radius 0.048, track_width 0.205)
     spawner_ssc = Node(
         package='controller_manager',
         executable='spawner',
-        arguments=['--controller-manager', '/controller_manager', '--controller-manager-timeout', '20', 'skid_steer_controller']
+        arguments=['--controller-manager', '/controller_manager', '--controller-manager-timeout', '20',
+                   '--param-file', controllers_file, 'skid_steer_controller']
     )
     
     def include(launch_file):

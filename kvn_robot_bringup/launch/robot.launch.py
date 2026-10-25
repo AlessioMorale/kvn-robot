@@ -1,6 +1,8 @@
 """Real robot, everything: drive base, sensors (lidar, camera), SLAM and Nav2.
 
-Systemd entry point (kvn-control.service). Each layer is its own launch file and runs standalone:
+For running by hand. On the robot systemd starts the layers as separate units instead
+(kvn-control, kvn-sensors, kvn-nav; see systemd/README.md). Each layer is its own launch file and runs
+standalone:
   robot_base     robot_state_publisher, ros2_control, wheel odometry, IMU, teleop, hwmon, status
   robot_sensors  lidar + OAK depth camera
   nav_stack      fuse (odom -> base_link), slam_toolbox (map -> odom), Nav2

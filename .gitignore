@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+
+# colcon artifacts (accidentally created under systemd/)
+kvn_robot_bringup/systemd/build/
+kvn_robot_bringup/systemd/install/
+kvn_robot_bringup/systemd/log/

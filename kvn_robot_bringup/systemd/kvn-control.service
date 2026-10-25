@@ -1,5 +1,5 @@
 [Unit]
-Description=KVN control stack (ELRS joy, teleop, controllers)
+Description=KVN locomotion (robot_base: ros2_control, wheel odometry, IMU, ELRS teleop, hwmon, status)
 After=network.target kvn-ina3221.service
 # Never depends on WiFi/VPN (design R3, R5): no zerotier ordering here.
 
@@ -12,7 +12,7 @@ Nice=-5
 CPUWeight=500
 Restart=on-failure
 RestartSec=2
-ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup robot.launch.py'
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup robot_base.launch.py'
 
 [Install]
 WantedBy=multi-user.target

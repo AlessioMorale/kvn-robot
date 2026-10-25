@@ -1,0 +1,19 @@
+[Unit]
+Description=KVN localisation and navigation (nav_stack: fuse, slam_toolbox, Nav2)
+# Needs /odom and /imu (kvn-control) and /scan, /oak/rgbd/points (kvn-sensors)
+Requires=kvn-control.service kvn-sensors.service
+After=kvn-control.service kvn-sensors.service
+# Both command /cmd_vel: starting the calibration stops navigation (and exploration with it)
+Conflicts=kvn-calibration.service kvn-drive.target kvn-calibration.target
+
+[Service]
+Type=simple
+User=alessio
+EnvironmentFile=/etc/kvn/kvn-ros.env
+# Below the control path, above the WiFi extras
+CPUWeight=200
+Restart=on-failure
+RestartSec=3
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup nav_stack.launch.py'
+
+# No [Install]: started by kvn-nav.target / kvn-explore.target (or by hand).

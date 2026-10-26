@@ -1,4 +1,4 @@
-"""fuse odometry + slam_toolbox + Nav2. Expects /odom, /imu and /scan (+ /oak/rgbd/points) to be
+"""fuse odometry + slam_toolbox + Nav2 + behaviour-tree orchestrator. Expects /odom, /imu and /scan (+ /oak/rgbd/points) to be
 published: by base + sensors on the robot (see robot.launch.py), by sim_headless in the simulation
 (see sim_nav_stack.launch.py, which passes use_sim_time:=true)."""
 from launch import LaunchDescription
@@ -19,6 +19,9 @@ def generate_launch_description():
     use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time', default_value='false',
         description='Use /clock (simulation)')
+    use_orchestrator_arg = DeclareLaunchArgument(
+        'use_orchestrator', default_value='true',
+        description='Start the behaviour-tree orchestrator (requires Nav2)')
     use_sim_time = LaunchConfiguration('use_sim_time')
 
     def include(package, *path, **args):
@@ -49,11 +52,22 @@ def generate_launch_description():
         launch_arguments={'use_sim_time': use_sim_time}.items())],
         scoped=True, condition=IfCondition(LaunchConfiguration('use_nav2')))
 
+    orchestrator = GroupAction([IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('kvn_orchestrator'), 'launch', 'orchestrator.launch.py'])),
+        launch_arguments={
+            'use_orchestrator': LaunchConfiguration('use_orchestrator'),
+            'use_sim_time': use_sim_time,
+        }.items())],
+        scoped=True, condition=IfCondition(LaunchConfiguration('use_nav2')))
+
     return LaunchDescription([
         use_nav2_arg,
         use_sim_time_arg,
+        use_orchestrator_arg,
         ekf,
         slam_toolbox,
         map_saver_server,
         nav2,
+        orchestrator,
     ])

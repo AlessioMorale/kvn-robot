@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!-- Capture the first home pose once the rover is localized and still. Home is kept in memory. -->
+<root BTCPP_format="4">
+  <BehaviorTree ID="CaptureStartupHome">
+    <ReactiveSequence name="Capture startup home">
+      <Inverter name="Home pose missing">
+        <EntryExists key="home"/>
+      </Inverter>
+      <JoyButton name="Teleop disarmed"
+                 topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                 buttons="{teleop_buttons}" state="released"/>
+      <RobotStationary name="Robot stationary"
+                       topic="{odom_topic}" timeout_s="{odom_timeout_s}"
+                       hold_s="{stationary_hold_s}"
+                       max_linear_mps="{stationary_linear_mps}"
+                       max_angular_rps="{stationary_angular_rps}"/>
+      <Fallback>
+        <Sequence name="Capture home">
+          <CaptureRobotPose parent_frame="{home_frame}" child_frame="{base_frame}"
+                            pose="{home}"/>
+          <SetStatus topic="{status_topic}" value="startup_home_captured"/>
+        </Sequence>
+        <Sequence name="Wait for localization">
+          <SetStatus topic="{status_topic}" value="waiting_for_localization"/>
+          <AlwaysFailure/>
+        </Sequence>
+      </Fallback>
+    </ReactiveSequence>
+  </BehaviorTree>
+</root>

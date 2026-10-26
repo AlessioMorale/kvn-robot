@@ -14,6 +14,14 @@ def generate_launch_description():
     publish_joints_arg = DeclareLaunchArgument(
         'publish_joints', default_value='true'
     )
+    use_wled_arg = DeclareLaunchArgument(
+        'use_wled', default_value='false',
+        description='Start the WLED signalling light (requires the serial adapter dependency)'
+    )
+    wled_port_arg = DeclareLaunchArgument(
+        'wled_port', default_value='/dev/ttyACM0',
+        description='Serial device connected to the WLED ESP32'
+    )
     
     use_mock_hardware = LaunchConfiguration('use_mock_hardware')
     
@@ -51,9 +59,10 @@ def generate_launch_description():
                    '--param-file', controllers_file, 'skid_steer_controller']
     )
     
-    def include(launch_file):
+    def include(launch_file, **args):
         # Scoped: launch arguments declared by an included file (e.g. params_file) must not leak
-        return GroupAction([IncludeLaunchDescription(PythonLaunchDescriptionSource(launch_file))], scoped=True)
+        return GroupAction([IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(launch_file), launch_arguments=args.items())], scoped=True)
 
     hwmon_include = include(PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'hardware_monitor.launch.py']))
     odometry_include = include(PathJoinSubstitution([kvn_robot_bringup_dir, 'launch', 'wheel_odometry.launch.py']))
@@ -61,12 +70,17 @@ def generate_launch_description():
     # /imu (ISM330DHCX on SPI0), read by wheel odometry and fuse
     imu_include = include(PathJoinSubstitution([FindPackageShare('ism330dhcx_node'), 'launch', 'ism330dhcx.launch.py']))
     # /robot_status for the ELRS handset (reads /diagnostics, /battery_state, /joy)
-    status_include = include(PathJoinSubstitution([FindPackageShare('kvn_status'), 'launch', 'kvn_status.launch.py']))
+    status_include = include(
+        PathJoinSubstitution([FindPackageShare('kvn_status'), 'launch', 'kvn_status.launch.py']),
+        use_wled=LaunchConfiguration('use_wled'),
+        wled_port=LaunchConfiguration('wled_port'))
 
     return LaunchDescription([
         hwmon_include,
         use_mock_hardware_arg,
         publish_joints_arg,
+        use_wled_arg,
+        wled_port_arg,
         robot_state_publisher,
         controller_manager,
         spawner_jsb,

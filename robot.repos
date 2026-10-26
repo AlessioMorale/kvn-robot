@@ -18,11 +18,11 @@ repositories:
   src/ros_ddsm_servo:
     type: git
     url: git@github.com:AlessioMorale/ros_ddsm_servo.git
-    version: lyrical-migration
+    version: main
   src/ros_hwmon_diagnostic_updater:
     type: git
     url: git@github.com:AlessioMorale/ros_hwmon_diagnostic_updater.git
-    version: mani
+    version: main
   src/ros_ism330_imu:
     type: git
     url: git@github.com:AlessioMorale/ros_ism330_imu.git

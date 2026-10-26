@@ -108,7 +108,7 @@ Run `robot` alone, or its layers separately; do not start `robot` together with 
 | `kvn_robot_description` | Rover URDF/Xacro, meshes, frames and RViz configuration. |
 | `kvn_robot_bringup` | Simulation and hardware launch files, controller and subsystem configuration. |
 | `skid_steer_controller`, `kvn_odometry`, `kvn_ekf` | Drive control, wheel odometry and fused odometry. |
-| `kvn_joy_teleop`, `kvn_status` | Teleoperation and concise health reporting. |
+| `kvn_joy_teleop`, `kvn_status`, `kvn_orchestrator` | Teleoperation, health reporting, and joystick-driven behaviour-tree autonomy. |
 | `kvn_video_streamer` | On-demand video to Foxglove, with optional WebRTC. |
 
 ## Status

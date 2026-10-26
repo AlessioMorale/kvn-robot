@@ -9,6 +9,65 @@ ros2 run kvn_status kvn_status_node --ros-args --params-file my_status.yaml
 
 Started from `kvn_robot_bringup/launch/robot_base.launch.py` (disable with `use_status:=false`).
 
+## WLED signalling light
+
+An optional `kvn_wled_signal` node sends the current mode to a WLED ESP32 over serial using
+[`wled-adapter`](https://github.com/AlessioMorale/wled-adapter). Register its rosdep rule once on
+each machine:
+
+```bash
+# Only if rosdep has not been initialized on this machine yet:
+sudo rosdep init
+./src/kvn-robot/kvn_status/scripts/register_kvn_rosdep.sh
+rosdep install --from-paths src --ignore-src -y
+```
+
+The registration script adds the checked-out rule to the system rosdep sources and runs
+`rosdep update`. The rules pin the adapter to a known Git commit and install the behavior-tree
+library through rosdep's pip installer.
+Run the registration script again if the workspace moves. `rosdep init` is a one-time system setup;
+skip it if rosdep is already initialized.
+
+The adapter uses the WLED serial JSON interface at 115200 baud; the ESP32 must be connected to the
+rover computer. It controls segment 0 by default. Enable it in the hardware bring-up with:
+
+```bash
+ros2 launch kvn_robot_bringup robot.launch.py \
+  use_wled:=true wled_port:=/dev/serial/by-id/YOUR_ESP32
+```
+
+The serial node is disabled by default so a missing ESP32 does not affect normal bring-up.
+Its parameters are in [config/kvn_wled_signal.yaml](config/kvn_wled_signal.yaml).
+For the systemd-managed rover, enable it in `/etc/kvn/kvn-ros.env` with
+`KVN_WLED_ENABLED=true` and set `KVN_WLED_PORT` to the ESP32 device path.
+
+`/robot_mode` publishes the selected mode as `std_msgs/String`. Priority is critical battery,
+robot fault, low battery, warning, exploration, Nav2 navigation, teleop, then standby; before the
+first `/robot_status` message the mode is `starting_up`. Battery limits default to 12.4 V critical
+and 13.6 V low for the rover's 4S pack. The teleop mode follows the configured `/joy` enable button,
+not measured wheel motion.
+
+| Mode | WLED indication | Note |
+|---|---|---|
+| `starting_up` | Blue breathe | Change to yellow breathe |
+| `standby` | Dim white | 10% cycle blink 2s |
+| `teleop` | Green | 10% cycle blink 1s |
+| `assisted teleop` | Purple | 10% cycle blink 1s |
+| `navigation` | Blue | 10% cycle blink 1s |
+| `exploration` | Cyan | 10% cycle blink 1s |
+| `battery_low` | Amber blink | 10% cycle blink 0.5s |
+| `battery_critical` | Red blink | 10% cycle blink 0.5s |
+| `warning` / `fault` | Amber solid / magenta blink | 10% cycle blink 0.25s |
+
+WLED effect IDs use the standard WLED order: 0 solid, 1 blink, 2 breathe.
+
+## Behaviour-tree orchestrator
+
+The `kvn_orchestrator` package runs a BehaviorTree.CPP behaviour tree (defined in XML) from
+`nav_stack.launch.py` when Nav2 is enabled. Controls, cancellation behavior, status
+values, and safety thresholds are documented in
+[kvn_orchestrator/README.md](../kvn_orchestrator/README.md).
+
 ## Output
 
 | Topic | Type | Notes |
@@ -19,10 +78,14 @@ Started from `kvn_robot_bringup/launch/robot_base.launch.py` (disable with `use_
 |---|---|
 | `FLT` | A fault, a stale input, or a configuration error (`FLT:CFG`) |
 | `WRN` | A warning |
-| `DRV` | No fault or warning; teleop enable (AUX1) is high |
 | `RDY` | No fault or warning; teleop disabled |
+| `DRV` | No fault or warning; teleop enable (AUX1) is high |
+| `AST` | No fault or warning; Assisted teleop |
+| `NAV` | No fault or warning; Navigation |
+| `EXP` | No fault or warning; Exploration |
+| `UNK` | Unknown state, no input received |
 
-Priority is `FLT` > `WRN` > `DRV` > `RDY`. Among several faults (or warnings) the **oldest** active one is shown (earliest onset; equal onsets go to the first input in `inputs`).
+Priority is `FLT` > `WRN` > `NAV` | `EXP` > `DRV` | `AST` > `RDY`. Among several faults (or warnings) the **oldest** active one is shown (earliest onset; equal onsets go to the first input in `inputs`).
 
 **Staleness**: an input with no update for `timeout_s` is reported as `FLT:<stale_code>`, so a dead sensor never shows as `RDY`. An input never received is given `timeout_s` of grace after startup. Time is measured on the steady clock.
 

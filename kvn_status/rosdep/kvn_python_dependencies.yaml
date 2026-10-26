@@ -1,0 +1,5 @@
+wled-adapter:
+  ubuntu:
+    pip:
+      packages:
+        - "wled-adapter @ git+https://github.com/AlessioMorale/wled-adapter.git@19bf821c539a4aed354fbd49f145d14e4d4ccc3d"

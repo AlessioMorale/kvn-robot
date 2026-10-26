@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<!--
+  KVN rover orchestrator.
+
+  This file is the whole behaviour: which subtrees run, in which priority order, and every
+  tunable (topics, buttons, timeouts, thresholds). Edit it, restart the node, done; no code change
+  is needed. Node types come from BehaviorTree.CPP and from the plugin libraries listed in
+  orchestrator.yaml; README.md documents their ports.
+
+  Every tick the ReactiveFallback tries its children top to bottom and stops at the first that
+  does not fail. A higher-priority branch becoming active halts a lower one that is running.
+-->
+<root BTCPP_format="4" main_tree_to_execute="KvnOrchestrator">
+  <include path="subtrees/set_home.xml"/>
+  <include path="subtrees/return_home.xml"/>
+  <include path="subtrees/capture_startup_home.xml"/>
+
+  <BehaviorTree ID="KvnOrchestrator">
+    <ReactiveFallback name="KVN rover orchestrator">
+      <RunOnce then_skip="true">
+        <SetStatus topic="/orchestrator/status" value="starting_up"/>
+      </RunOnce>
+
+      <!-- AUX3+AUX4 held for 1.5 s: replace the home pose. -->
+      <SubTree ID="SetHome"
+               _autoremap="true"
+               joy_topic="/joy"
+               joy_timeout_s="1.0"
+               teleop_buttons="0"
+               set_home_buttons="2;3"
+               set_home_hold_s="1.5"
+               odom_topic="/odom_ekf"
+               odom_timeout_s="0.5"
+               stationary_hold_s="1.0"
+               stationary_linear_mps="0.03"
+               stationary_angular_rps="0.05"
+               home_frame="map"
+               base_frame="base_link"
+               status_topic="/orchestrator/status"/>
+
+      <!-- AUX3 held: pause exploration and drive home. -->
+      <SubTree ID="ReturnHome"
+               _autoremap="true"
+               joy_topic="/joy"
+               joy_timeout_s="1.0"
+               teleop_buttons="0"
+               return_buttons="2"
+               return_blocking_buttons="3"
+               navigate_action="/navigate_to_pose"
+               home_frame="map"
+               base_frame="base_link"
+               explore_status_topic="/explore/status"
+               explore_resume_topic="/explore/resume"
+               explore_settle_s="0.5"
+               status_topic="/orchestrator/status"/>
+
+      <!-- No home pose yet: take one as soon as the rover is localized and still. -->
+      <SubTree ID="CaptureStartupHome"
+               _autoremap="true"
+               joy_topic="/joy"
+               joy_timeout_s="1.0"
+               teleop_buttons="0"
+               odom_topic="/odom_ekf"
+               odom_timeout_s="0.5"
+               stationary_hold_s="1.0"
+               stationary_linear_mps="0.03"
+               stationary_angular_rps="0.05"
+               home_frame="map"
+               base_frame="base_link"
+               status_topic="/orchestrator/status"/>
+
+      <AlwaysSuccess name="Idle"/>
+    </ReactiveFallback>
+  </BehaviorTree>
+</root>

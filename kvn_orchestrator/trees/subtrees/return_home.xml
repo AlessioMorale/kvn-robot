@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!--
+  Drive to the captured home pose while the return switch is held.
+
+  The guards are re-checked every tick. If one goes false (switch released, teleop enabled, Joy
+  lost) the navigation is halted, which cancels the Nav2 goal, and OnAbort's second child
+  reports the outcome and resumes exploration if it was running before.
+-->
+<root BTCPP_format="4">
+  <BehaviorTree ID="ReturnHome">
+    <ReactiveSequence name="Return home">
+      <JoyButton name="Teleop disarmed"
+                 topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                 buttons="{teleop_buttons}" state="released"/>
+      <JoyButton name="Return switch held"
+                 topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                 buttons="{return_buttons}" state="pressed"/>
+      <JoyButton name="Not a set-home chord"
+                 topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                 buttons="{return_blocking_buttons}" state="released"/>
+      <EntryExists name="Home pose available" key="home"/>
+
+      <!-- One hold, one trip: after it ends the switch has to be released and pressed again. -->
+      <OncePerPress buttons="{return_buttons}" topic="{joy_topic}">
+        <OnAbort>
+          <Sequence name="Navigate home">
+            <Script code="nav_error := 0; resume_exploration := false"/>
+            <ForceSuccess name="Remember exploration">
+              <Sequence>
+                <IsExploring topic="{explore_status_topic}"/>
+                <Script code="resume_exploration := true"/>
+              </Sequence>
+            </ForceSuccess>
+            <PublishBool topic="{explore_resume_topic}" value="false"/>
+            <SetStatus topic="{status_topic}" value="returning_home"/>
+            <WaitSeconds seconds="{explore_settle_s}"/>
+            <!-- Nav2's own BT node; halting it cancels the goal and waits for Nav2. -->
+            <NavigateToPose server_name="{navigate_action}" goal="{home}"
+                            error_code_id="{nav_error}" error_msg="{nav_error_msg}"/>
+            <!-- Nav2 reports a goal preempted by someone else as success; verify arrival. -->
+            <GoalReached goal="{home}" robot_base_frame="{base_frame}"/>
+            <SetStatus topic="{status_topic}" value="home_reached"/>
+          </Sequence>
+
+          <!-- Failed or halted: say why, then hand control back to exploration. -->
+          <Sequence name="Abort handler">
+            <!-- nav_error is Nav2's NavigateToPose error code: 1 rejected, 0 none/cancelled. -->
+            <Script code="abort_status := (nav_error == 1) ? 'return_rejected' : ((nav_error &gt; 0) ? 'return_failed' : 'return_cancelled')"/>
+            <SetStatus topic="{status_topic}" value="{abort_status}"/>
+            <ForceSuccess name="Resume exploration">
+              <Sequence>
+                <ScriptCondition code="resume_exploration == true"/>
+                <PublishBool topic="{explore_resume_topic}" value="true"/>
+              </Sequence>
+            </ForceSuccess>
+          </Sequence>
+        </OnAbort>
+      </OncePerPress>
+    </ReactiveSequence>
+  </BehaviorTree>
+</root>

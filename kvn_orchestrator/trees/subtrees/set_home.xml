@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!-- Replace the home pose with the current pose. Teleop must be off and the rover still. -->
+<root BTCPP_format="4">
+  <BehaviorTree ID="SetHome">
+    <ReactiveSequence name="Set home">
+      <JoyButton name="Teleop disarmed"
+                 topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                 buttons="{teleop_buttons}" state="released"/>
+      <JoyButton name="Set-home chord held"
+                 topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                 buttons="{set_home_buttons}" state="pressed" hold_s="{set_home_hold_s}"/>
+      <RobotStationary name="Robot stationary"
+                       topic="{odom_topic}" timeout_s="{odom_timeout_s}"
+                       hold_s="{stationary_hold_s}"
+                       max_linear_mps="{stationary_linear_mps}"
+                       max_angular_rps="{stationary_angular_rps}"/>
+      <OncePerPress buttons="{set_home_buttons}" topic="{joy_topic}">
+        <Fallback>
+          <Sequence name="Capture home">
+            <CaptureRobotPose parent_frame="{home_frame}" child_frame="{base_frame}"
+                              pose="{home}"/>
+            <SetStatus topic="{status_topic}" value="home_set"/>
+          </Sequence>
+          <Sequence name="Wait for localization">
+            <SetStatus topic="{status_topic}" value="waiting_for_localization"/>
+            <AlwaysFailure/>
+          </Sequence>
+        </Fallback>
+      </OncePerPress>
+    </ReactiveSequence>
+  </BehaviorTree>
+</root>

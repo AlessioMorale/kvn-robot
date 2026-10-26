@@ -40,16 +40,23 @@ add_executable(kvn_status_node src/status_main.cpp)
 target_link_libraries(kvn_status_node ${PROJECT_NAME}_lib)
 
 install(TARGETS kvn_status_node DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
+install(PROGRAMS scripts/kvn_wled_signal.py DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY config launch rosdep DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
+  find_package(ament_cmake_pytest REQUIRED)
 
   ament_add_gtest(test_status_reducer test/test_status_reducer.cpp)
   target_link_libraries(test_status_reducer ${PROJECT_NAME}_reducer)
 
   ament_add_gtest(test_status_node test/test_status_node.cpp TIMEOUT 120)
   target_link_libraries(test_status_node ${PROJECT_NAME}_lib)
+
+  ament_add_pytest_test(
+    test_wled_signal test/test_wled_signal.py
+    APPEND_ENV PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/scripts
+  )
 endif()
 
 ament_package()

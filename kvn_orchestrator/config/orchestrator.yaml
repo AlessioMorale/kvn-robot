@@ -1,0 +1,24 @@
+# Process-level settings. The behaviour itself (topics, buttons, timeouts, thresholds, the shape of
+# the tree) is defined in the XML file named by tree_file.
+kvn_orchestrator_node:
+  ros__parameters:
+    # Overridden by the launch file with trees/kvn_orchestrator.xml of this package.
+    tree_file: ""
+    # Tree to run; empty uses main_tree_to_execute from the XML file.
+    tree_id: ""
+    # BT node plugins to load: "name" (this package), "package:name" (e.g. Nav2's BT plugins) or
+    # an absolute .so path.
+    plugin_libraries:
+      - kvn_bt_conditions
+      - kvn_bt_actions
+      - kvn_bt_control
+      - nav2_behavior_tree:nav2_navigate_to_pose_action_bt_node
+      - nav2_behavior_tree:nav2_goal_reached_condition_bt_node
+    tick_period_s: 0.1
+
+    # Settings read by Nav2's BT nodes, same meaning as in bt_navigator.
+    server_timeout_ms: 20
+    cancel_timeout_ms: 1000
+    wait_for_service_timeout_ms: 1000
+    goal_reached_tol: 0.25  # m, tolerance of the GoalReached check after Nav2 reports success
+    transform_tolerance: 0.1

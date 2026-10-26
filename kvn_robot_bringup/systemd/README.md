@@ -4,10 +4,10 @@ Each layer of the stack is its own unit, so a crash or restart in one does not t
 
 | File | Runs | Notes |
 |---|---|---|
-| `kvn-ros.env` | | Shared environment, includes `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` (DDS never crosses the VPN) |
-| `kvn-control.service` | `robot_base.launch.py`: ros2_control, wheel odometry, IMU, ELRS teleop, hwmon, status | Locomotion. `Nice=-5`, `CPUWeight=500`, never depends on ZeroTier |
+| `kvn-ros.env` | | Shared environment, includes `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` (DDS never crosses the VPN) and optional WLED settings |
+| `kvn-control.service` | `robot_base.launch.py`: ros2_control, wheel odometry, IMU, ELRS teleop, hwmon, status | Locomotion. `Nice=-5`, `CPUWeight=500`, never depends on ZeroTier; forwards WLED settings |
 | `kvn-sensors.service` | `robot_sensors.launch.py`: lidar, OAK camera | `Wants=kvn-control` |
-| `kvn-nav.service` | `nav_stack.launch.py`: fuse, slam_toolbox, Nav2 | Localisation and navigation. `Requires=kvn-control kvn-sensors` |
+| `kvn-nav.service` | `nav_stack.launch.py`: fuse, slam_toolbox, Nav2, behaviour-tree orchestrator | Localisation and navigation. `Requires=kvn-control kvn-sensors` |
 | `kvn-explore.service` | `explore.launch.py`: explore_lite | `Requires=kvn-nav`. The rover drives off by itself |
 | `kvn-calibration.service` | `kvn_odom_calibration` | One-shot, never at boot. Stops nav and explore while it runs |
 | `kvn-foxglove.service` | `foxglove_bridge.launch.py`: read-only bridge, TCP 8765 | `Nice=10`, `CPUQuota=50%`, `After=`/`Wants=zerotier-one.service` |
@@ -53,6 +53,10 @@ sudo systemctl start kvn-foxglove-control    # or just for now, until reboot
 ```
 
 > **Warning:** foxglove_bridge 3.6.2 does not enforce `client_topic_whitelist`. The parameter is set, but a client can publish to *any* topic. This was tested: a made-up `/forbidden` topic got through. The three topics above are the intent, not a guarantee. With the control bridge running, anyone who can reach TCP 8765 can drive the rover. The firewall (`nftables-kvn.conf`, ZeroTier only) and the ZeroTier flow rules are what limit who that is.
+
+The WLED light is disabled by default. To enable it, install the `wled-adapter` Python library for
+the service user and set `KVN_WLED_ENABLED=true` and `KVN_WLED_PORT` (preferably a stable
+`/dev/serial/by-id/...` path) in `/etc/kvn/kvn-ros.env`, then restart `kvn-control.service`.
 
 ## Install
 

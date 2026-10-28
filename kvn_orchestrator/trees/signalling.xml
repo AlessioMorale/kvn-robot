@@ -5,7 +5,7 @@
   A tree of its own, ticked next to the main orchestrator tree from startup on (it needs no Nav2
   server). It picks one signal for the operator and publishes it, latched, on /orchestrator/signal;
   kvn_wled_signal shows it on the light. Signal names are the keys of the light's pattern table
-  (kvn_status/config/kvn_wled_signal.yaml), so adding a signal means adding a branch here and a
+  (MODE_SETTINGS in kvn_status/scripts/kvn_wled_signal.py), so adding a signal means adding a branch here and a
   pattern there.
 
   Priority, top to bottom: battery critical, fault, battery low, warning, then what the rover is

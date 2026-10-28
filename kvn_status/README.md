@@ -50,18 +50,23 @@ and the serial port come from `kvn_robot_bringup/config/robot.yaml` (12.4 V crit
 for the rover's 4S pack). The teleop mode follows the configured `/joy` enable button, not
 measured wheel motion. `/robot_mode` publishes the mode shown as `std_msgs/String`.
 
-| Mode | WLED indication | Note |
-|---|---|---|
-| `starting_up` | Blue breathe | Change to yellow breathe |
-| `standby` | Dim white | 10% cycle blink 2s |
-| `teleop` | Green | 10% cycle blink 1s |
-| `assisted_teleop` | Purple | 10% cycle blink 1s |
-| `navigation` | Blue | 10% cycle blink 1s |
-| `exploration` | Cyan | 10% cycle blink 1s |
-| `returning_home` | Yellow blink | Return home (switch or battery); orchestrator only |
-| `battery_low` | Amber blink | 10% cycle blink 0.5s |
-| `battery_critical` | Red blink | 10% cycle blink 0.5s |
-| `warning` / `fault` | Amber solid / magenta blink | 10% cycle blink 0.25s |
+| Mode | WLED indication |
+|---|---|
+| `starting_up` | Yellow breathe |
+| `standby` | Dim white, blink every 2 s |
+| `teleop` | Green, blink every 1 s |
+| `assisted_teleop` | Purple, blink every 1 s |
+| `navigation` | Blue, blink every 1 s |
+| `exploration` | Cyan, blink every 1 s |
+| `returning_home` | Yellow blink (WLED default speed); return home by switch or battery, orchestrator only |
+| `battery_low` | Amber, blink every 0.5 s |
+| `battery_critical` | Red, blink every 0.5 s |
+| `warning` / `fault` | Amber / magenta, blink every 0.25 s |
+
+"Blink every N s" is a short flash, on for 10 % of an N-second cycle. The node sets WLED's Blink
+effect speed and intensity for it (`blink_timing` in
+[scripts/kvn_wled_signal.py](scripts/kvn_wled_signal.py)), assuming WLED's default 42 fps.
+The patterns are the `MODE_SETTINGS` table in that script.
 
 WLED effect IDs use the standard WLED order: 0 solid, 1 blink, 2 breathe.
 

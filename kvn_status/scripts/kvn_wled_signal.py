@@ -14,18 +14,46 @@ from sensor_msgs.msg import BatteryState, Joy
 from std_msgs.msg import String
 
 
+FX_BLINK = 1
+FX_BREATHE = 2
+# WLED's default effect speed and intensity, sent with every pattern so a blink's timing does not
+# carry over to the next effect.
+DEFAULT_SPEED = 128
+DEFAULT_INTENSITY = 128
+# One frame at WLED's default 42 fps.
+WLED_FRAME_MS = 24
+BLINK_DUTY = 0.1
+
+
+def blink_timing(period_s: float, duty: float = BLINK_DUTY) -> tuple[int, int]:
+    """WLED Blink speed (sx) and intensity (ix) for a cycle of period_s, on for duty of it.
+
+    WLED Blink: cycle = (255 - sx) * 20 ms + 2 frames, on time = 1 frame + (cycle - 2 frames) * ix / 256.
+    """
+    cycle_ms = max(period_s * 1000.0 - 2 * WLED_FRAME_MS, 0.0)
+    speed = round(255 - cycle_ms / 20.0)
+    on_ms = max(duty * period_s * 1000.0 - WLED_FRAME_MS, 0.0)
+    intensity = round(on_ms * 256.0 / cycle_ms) if cycle_ms > 0 else 0
+    return min(max(speed, 0), 255), min(max(intensity, 0), 255)
+
+
+def _blink(color: tuple[int, int, int], period_s: float):
+    return (color, FX_BLINK, *blink_timing(period_s))
+
+
+# mode: (colour, WLED effect, speed, intensity)
 MODE_SETTINGS = {
-    "starting_up": ((0, 0, 255), 2),
-    "standby": ((255, 255, 255), 0),
-    "teleop": ((0, 255, 0), 0),
-    "assisted_teleop": ((160, 0, 255), 0),
-    "navigation": ((0, 64, 255), 0),
-    "exploration": ((0, 255, 180), 0),
-    "returning_home": ((255, 255, 0), 1),
-    "battery_low": ((255, 96, 0), 1),
-    "battery_critical": ((255, 0, 0), 1),
-    "warning": ((255, 160, 0), 0),
-    "fault": ((255, 0, 255), 1),
+    "starting_up": ((255, 255, 0), FX_BREATHE, DEFAULT_SPEED, DEFAULT_INTENSITY),
+    "standby": _blink((64, 64, 64), 2.0),
+    "teleop": _blink((0, 255, 0), 1.0),
+    "assisted_teleop": _blink((160, 0, 255), 1.0),
+    "navigation": _blink((0, 64, 255), 1.0),
+    "exploration": _blink((0, 255, 180), 1.0),
+    "returning_home": ((255, 255, 0), FX_BLINK, DEFAULT_SPEED, DEFAULT_INTENSITY),
+    "battery_low": _blink((255, 96, 0), 0.5),
+    "battery_critical": _blink((255, 0, 0), 0.5),
+    "warning": _blink((255, 160, 0), 0.25),
+    "fault": _blink((255, 0, 255), 0.25),
 }
 
 
@@ -348,7 +376,7 @@ class WledSignalNode(Node):
 
         if mode == self._last_written_mode:
             return
-        color, effect = MODE_SETTINGS[mode]
+        color, effect, speed, intensity = MODE_SETTINGS[mode]
         try:
             self._adapter.send_state(
                 self._state_type(
@@ -358,6 +386,8 @@ class WledSignalNode(Node):
                             on=True,
                             bri=self._brightness,
                             fx=effect,
+                            sx=speed,
+                            ix=intensity,
                             col=[list(color), [0, 0, 0], [0, 0, 0]],
                         )
                     ]

@@ -1,0 +1,25 @@
+kvn_display_node:
+  ros__parameters:
+    # Display hardware. On the rover these come from kvn_robot_bringup/config/robot.yaml (display).
+    # driver: a u8g2 full-buffer setup function without u8g2_Setup_ and _f; "_i2c_" in the name
+    # means I2C, anything else is 4-wire SPI.
+    driver: ssd1306_i2c_64x32_1f
+    rotation: 0                   # 0, 90, 180, 270
+    contrast: -1                  # 0..255, -1: the driver's default
+    # I2C drivers
+    i2c_device: /dev/i2c-1
+    i2c_address: 60               # 0x3C; some modules use 0x3D (61)
+    # SPI drivers: chip select by the kernel, D/C and reset by GPIO line offsets on gpio_chip
+    spi_device: /dev/spidev1.0
+    spi_speed_hz: 0               # 0: the display's maximum
+    gpio_chip: /dev/gpiochip0
+    dc_line: -1                   # required for SPI
+    reset_line: -1                # -1: no reset line
+    status_topic: /robot_status
+    battery_topic: /battery_state
+    mode_topic: /orchestrator/mode
+    cmd_source_topic: /cmd_vel_source
+    status_timeout_s: 3.0
+    battery_timeout_s: 3.0
+    mode_timeout_s: 3.0
+    update_period_s: 0.5

@@ -17,6 +17,7 @@
   <exec_depend>elrs_joy_crsf_node</exec_depend>
   <exec_depend>hwmon_diagnostic_updater</exec_depend>
   <exec_depend>kvn_status</exec_depend>
+  <exec_depend>kvn_display</exec_depend>
   <exec_depend>kvn_orchestrator</exec_depend>
   <exec_depend>rplidar_driver</exec_depend>
   <exec_depend>ism330dhcx_node</exec_depend>

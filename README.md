@@ -90,7 +90,7 @@ That launch file starts real hardware components (drive motors, ELRS receiver, I
 
 ### Robot configuration
 
-Device ports and battery limits live in one file, [`kvn_robot_bringup/config/robot.yaml`](kvn_robot_bringup/config/robot.yaml):
+Device ports, the status display and battery limits live in one file, [`kvn_robot_bringup/config/robot.yaml`](kvn_robot_bringup/config/robot.yaml):
 
 | Section | Used by |
 |---|---|
@@ -99,6 +99,7 @@ Device ports and battery limits live in one file, [`kvn_robot_bringup/config/rob
 | `ports.lidar`, `lidar_baudrate` | RPLIDAR driver |
 | `ports.imu` | `ism330dhcx_node` |
 | `ports.wled` | `kvn_wled_signal` |
+| `display.*` (optional) | `kvn_display` (u8g2 driver, I2C or SPI bus) |
 | `power_monitor` | `hwmon_diagnostic_updater` (INA3221) |
 | `battery.*` | hwmon limits, `kvn_status` (`WRN`/`FLT:BATT`), WLED, orchestrator signalling and return-home |
 | `return_home.*` | orchestrator battery return-home energy model |
@@ -142,6 +143,7 @@ Run `robot` alone, or its layers separately; do not start `robot` together with 
 | `kvn_robot_bringup` | Simulation and hardware launch files, controller and subsystem configuration. |
 | `skid_steer_controller`, `kvn_odometry`, `kvn_ekf` | Drive control, wheel odometry and fused odometry. |
 | `kvn_joy_teleop`, `kvn_status`, `kvn_orchestrator` | Teleoperation with operator override, health reporting, and behaviour-tree command modes, safety gating, assisted teleop, return home and signalling. |
+| `kvn_display` | Robot status on a small I2C or SPI display (any u8g2 driver). |
 | `kvn_video_streamer` | On-demand video to Foxglove, with optional WebRTC. |
 
 ## Status

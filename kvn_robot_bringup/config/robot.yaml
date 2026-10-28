@@ -15,6 +15,21 @@ ports:
   imu: /dev/spidev0.0             # ISM330DHCX on SPI0
   wled: /dev/ttyACM0              # WLED ESP32 (signalling light), only used with use_wled:=true
 
+# Status display (kvn_display), only used with use_display:=true. Optional: without this section
+# the display node keeps the values of kvn_display/config/kvn_display.yaml.
+# driver: a u8g2 full-buffer setup function without u8g2_Setup_ and _f
+# (https://github.com/olikraus/u8g2/wiki/u8g2setupc); "_i2c_" in the name means I2C, else SPI.
+display:
+  driver: ssd1306_i2c_64x32_1f    # 0.49" 64x32 SSD1306; try ssd1306_i2c_64x32_noname if shifted
+  i2c_device: /dev/i2c-1          # same bus as the INA3221
+  i2c_address: 0x3C
+  # An SPI display instead (keep it off SPI0, which the IMU uses):
+  # driver: ssd1306_128x64_noname
+  # spi_device: /dev/spidev1.0
+  # gpio_chip: /dev/gpiochip0
+  # dc_line: 24
+  # reset_line: 25
+
 # INA3221 power monitor at I2C1 0x40, resolved to its hwmonN directory at startup.
 power_monitor: /sys/bus/i2c/devices/1-0040
 

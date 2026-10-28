@@ -1,4 +1,5 @@
-"""HARDWARE ONLY - drive base: robot_state_publisher, ros2_control, wheel odometry, IMU, teleop, hwmon, status."""
+"""HARDWARE ONLY - drive base: robot_state_publisher, ros2_control, wheel odometry, IMU, teleop, hwmon, status
+(optional WLED light and status display)."""
 import os
 
 from launch import LaunchDescription
@@ -30,6 +31,10 @@ def generate_launch_description():
     wled_port_arg = DeclareLaunchArgument(
         'wled_port', default_value=cfg['ports']['wled'],
         description='Serial device connected to the WLED ESP32 (default: robot.yaml ports.wled)'
+    )
+    use_display_arg = DeclareLaunchArgument(
+        'use_display', default_value='false',
+        description='Start the status display (robot.yaml display section)'
     )
     
     use_mock_hardware = LaunchConfiguration('use_mock_hardware')
@@ -97,6 +102,13 @@ def generate_launch_description():
         wled_config=robot_config.merged_params_file(
             share('kvn_status', 'config', 'kvn_wled_signal.yaml'), 'kvn_wled_signal_node',
             overrides['kvn_wled_signal_node']))
+    # /robot_status, battery, orchestrator mode and command source on a small OLED
+    display_include = include(
+        PathJoinSubstitution([FindPackageShare('kvn_display'), 'launch', 'kvn_display.launch.py']),
+        use_display=LaunchConfiguration('use_display'),
+        params_file=robot_config.merged_params_file(
+            share('kvn_display', 'config', 'kvn_display.yaml'), 'kvn_display_node',
+            overrides['kvn_display_node']))
 
     return LaunchDescription([
         hwmon_include,
@@ -104,6 +116,7 @@ def generate_launch_description():
         publish_joints_arg,
         use_wled_arg,
         wled_port_arg,
+        use_display_arg,
         robot_state_publisher,
         controller_manager,
         spawner_jsb,
@@ -111,5 +124,6 @@ def generate_launch_description():
         odometry_include,
         imu_include,
         teleop_include,
-        status_include
+        status_include,
+        display_include
     ])

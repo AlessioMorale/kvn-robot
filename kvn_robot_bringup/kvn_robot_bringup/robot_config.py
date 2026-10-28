@@ -2,8 +2,8 @@
 # Licensed under the MIT License.
 """Robot-wide hardware configuration (config/robot.yaml) for the launch files.
 
-robot.yaml holds the values that describe this particular rover's hardware: device ports and
-battery limits. Several nodes need the same values under different parameter names (the battery
+robot.yaml holds the values that describe this particular rover's hardware: device ports, the
+status display and battery limits. Several nodes need the same values under different parameter names (the battery
 thresholds are read by hwmon, kvn_status, the WLED node and the orchestrator), so the launch
 files read robot.yaml once and hand each node its share:
 
@@ -62,6 +62,61 @@ def _positive(cfg: dict[str, Any], dotted: str, path: str) -> float:
     return float(value)
 
 
+DISPLAY_KEYS = (
+    "driver",
+    "rotation",
+    "contrast",
+    "i2c_device",
+    "i2c_address",
+    "spi_device",
+    "spi_speed_hz",
+    "gpio_chip",
+    "dc_line",
+    "reset_line",
+)
+
+
+def _int(cfg: dict[str, Any], dotted: str, path: str, low: int, high: int | None = None) -> int:
+    value = _require(cfg, dotted, path)
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or value < low
+        or (high is not None and value > high)
+    ):
+        bounds = f"{low}..{high}" if high is not None else f">= {low}"
+        raise ValueError(f"{path}: '{dotted}' must be an integer {bounds}")
+    return value
+
+
+def _validate_display(cfg: dict[str, Any], path: str) -> None:
+    """The optional display section; kvn_display checks that the driver exists."""
+    display = cfg["display"]
+    unknown = set(display) - set(DISPLAY_KEYS)
+    if unknown:
+        raise ValueError(f"{path}: unknown display keys {sorted(unknown)}")
+    driver = _require(cfg, "display.driver", path)
+    if not isinstance(driver, str) or not driver:
+        raise ValueError(f"{path}: 'display.driver' must be a u8g2 driver name")
+    if "_i2c_" in driver:
+        if not isinstance(_require(cfg, "display.i2c_device", path), str):
+            raise ValueError(f"{path}: 'display.i2c_device' must be a device path")
+        _int(cfg, "display.i2c_address", path, 0x03, 0x77)
+    else:
+        for key in ("spi_device", "gpio_chip"):
+            if not isinstance(_require(cfg, f"display.{key}", path), str):
+                raise ValueError(f"{path}: 'display.{key}' must be a device path")
+        _int(cfg, "display.dc_line", path, 0)
+    if "reset_line" in display:
+        _int(cfg, "display.reset_line", path, -1)
+    if "spi_speed_hz" in display:
+        _int(cfg, "display.spi_speed_hz", path, 0)
+    if "contrast" in display:
+        _int(cfg, "display.contrast", path, -1, 255)
+    if "rotation" in display and display["rotation"] not in (0, 90, 180, 270):
+        raise ValueError(f"{path}: 'display.rotation' must be 0, 90, 180 or 270")
+
+
 def validate(cfg: dict[str, Any], path: str = "robot.yaml") -> None:
     for port in ("motors", "rc_receiver", "lidar", "imu", "wled"):
         value = _require(cfg, f"ports.{port}", path)
@@ -73,6 +128,9 @@ def validate(cfg: dict[str, Any], path: str = "robot.yaml") -> None:
             raise ValueError(f"{path}: 'ports.{baud}' must be an integer > 0")
     if not isinstance(_require(cfg, "power_monitor", path), str):
         raise ValueError(f"{path}: 'power_monitor' must be a sysfs path")
+
+    if "display" in cfg:
+        _validate_display(cfg, path)
 
     cells = _require(cfg, "battery.cells", path)
     if isinstance(cells, bool) or not isinstance(cells, int) or cells <= 0:
@@ -133,6 +191,8 @@ def node_overrides(cfg: dict[str, Any]) -> dict[str, dict[str, Any]]:
             "low_battery_voltage": float(battery["warn_voltage"]),
             "critical_battery_voltage": float(battery["critical_voltage"]),
         },
+        # Empty without a display section: the node's own YAML applies.
+        "kvn_display_node": dict(cfg.get("display", {})),
         "kvn_orchestrator_node": {
             "blackboard.battery_warn_voltage": float(battery["warn_voltage"]),
             "blackboard.battery_critical_voltage": float(battery["critical_voltage"]),

@@ -7,13 +7,14 @@ After=network.target kvn-ina3221.service
 Type=simple
 User=alessio
 Environment=KVN_WLED_ENABLED=false
+Environment=KVN_DISPLAY_ENABLED=false
 EnvironmentFile=/etc/kvn/kvn-ros.env
 # Control path: normal-or-better priority, never throttled.
 Nice=-5
 CPUWeight=500
 Restart=on-failure
 RestartSec=2
-ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup robot_base.launch.py use_wled:=${KVN_WLED_ENABLED}'
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup robot_base.launch.py use_wled:=${KVN_WLED_ENABLED} use_display:=${KVN_DISPLAY_ENABLED}'
 
 [Install]
 WantedBy=multi-user.target

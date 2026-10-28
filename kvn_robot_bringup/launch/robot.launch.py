@@ -32,6 +32,8 @@ def generate_launch_description():
     wled_port_arg = DeclareLaunchArgument(
         'wled_port', default_value='/dev/ttyACM0',
         description='Serial device connected to the WLED ESP32')
+    use_display_arg = DeclareLaunchArgument(
+        'use_display', default_value='false', description='Start the status display')
     use_orchestrator_arg = DeclareLaunchArgument(
         'use_orchestrator', default_value='true',
         description='Start the behaviour-tree orchestrator (requires Nav2)')
@@ -41,11 +43,13 @@ def generate_launch_description():
         use_nav2_arg,
         use_wled_arg,
         wled_port_arg,
+        use_display_arg,
         use_orchestrator_arg,
         include('robot_base.launch.py',
                 use_mock_hardware=LaunchConfiguration('use_mock_hardware'),
                 use_wled=LaunchConfiguration('use_wled'),
-                wled_port=LaunchConfiguration('wled_port')),
+                wled_port=LaunchConfiguration('wled_port'),
+                use_display=LaunchConfiguration('use_display')),
         include('robot_sensors.launch.py'),
         include('nav_stack.launch.py',
                 use_nav2=LaunchConfiguration('use_nav2'),

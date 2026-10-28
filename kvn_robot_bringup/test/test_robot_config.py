@@ -40,6 +40,9 @@ def test_environment_variable_selects_the_file(monkeypatch, tmp_path, cfg):
         ("ports.lidar", "", "ports.lidar"),
         ("ports.lidar_baudrate", "fast", "ports.lidar_baudrate"),
         ("return_home.path_factor", 0.5, "path_factor"),
+        ("display.i2c_address", 0x80, "display.i2c_address"),
+        ("display.driver", "", "display.driver"),
+        ("display.rotation", 45, "display.rotation"),
     ],
 )
 def test_invalid_values_are_rejected(cfg, dotted, value, message):
@@ -52,6 +55,36 @@ def test_invalid_values_are_rejected(cfg, dotted, value, message):
 def test_missing_key_is_named(cfg):
     del cfg["battery"]["capacity_wh"]
     with pytest.raises(ValueError, match="battery.capacity_wh"):
+        robot_config.validate(cfg)
+
+
+def test_display_section_is_optional(cfg):
+    del cfg["display"]
+    robot_config.validate(cfg)
+    assert robot_config.node_overrides(cfg)["kvn_display_node"] == {}
+
+
+def test_display_reaches_the_display_node(cfg):
+    overrides = robot_config.node_overrides(cfg)["kvn_display_node"]
+    assert overrides["driver"] == "ssd1306_i2c_64x32_1f"
+    assert overrides["i2c_address"] == 0x3C
+
+
+def test_spi_display_needs_a_dc_line(cfg):
+    cfg["display"] = {
+        "driver": "ssd1306_128x64_noname",
+        "spi_device": "/dev/spidev1.0",
+        "gpio_chip": "/dev/gpiochip0",
+    }
+    with pytest.raises(ValueError, match="display.dc_line"):
+        robot_config.validate(cfg)
+    cfg["display"]["dc_line"] = 24
+    robot_config.validate(cfg)
+
+
+def test_unknown_display_keys_are_rejected(cfg):
+    cfg["display"]["width"] = 64
+    with pytest.raises(ValueError, match="unknown display keys"):
         robot_config.validate(cfg)
 
 
@@ -77,6 +110,9 @@ def test_override_names_exist_in_the_node_files(cfg):
         ),
         "kvn_orchestrator_node": os.path.join(
             CONFIG_DIR, "..", "..", "kvn_orchestrator", "config", "orchestrator.yaml"
+        ),
+        "kvn_display_node": os.path.join(
+            CONFIG_DIR, "..", "..", "kvn_display", "config", "kvn_display.yaml"
         ),
     }
     overrides = robot_config.node_overrides(cfg)

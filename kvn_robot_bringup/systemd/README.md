@@ -4,8 +4,8 @@ Each layer of the stack is its own unit, so a crash or restart in one does not t
 
 | File | Runs | Notes |
 |---|---|---|
-| `kvn-ros.env` | | Shared environment, includes `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` (DDS never crosses the VPN) the optional robot configuration path (`KVN_ROBOT_CONFIG`) and the WLED switch |
-| `kvn-control.service` | `robot_base.launch.py`: ros2_control, wheel odometry, IMU, ELRS teleop, hwmon, status | Locomotion. `Nice=-5`, `CPUWeight=500`, never depends on ZeroTier; forwards the WLED switch |
+| `kvn-ros.env` | | Shared environment, includes `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` (DDS never crosses the VPN) the optional robot configuration path (`KVN_ROBOT_CONFIG`) and the WLED and display switches |
+| `kvn-control.service` | `robot_base.launch.py`: ros2_control, wheel odometry, IMU, ELRS teleop, hwmon, status | Locomotion. `Nice=-5`, `CPUWeight=500`, never depends on ZeroTier; forwards the WLED and display switches |
 | `kvn-sensors.service` | `robot_sensors.launch.py`: lidar, OAK camera | `Wants=kvn-control` |
 | `kvn-nav.service` | `nav_stack.launch.py`: fuse, slam_toolbox, Nav2, behaviour-tree orchestrator | Localisation and navigation. `Requires=kvn-control kvn-sensors` |
 | `kvn-explore.service` | `explore.launch.py`: explore_lite | `Requires=kvn-nav`. The rover drives off by itself |
@@ -62,6 +62,11 @@ The WLED light is disabled by default. To enable it, install the `wled-adapter` 
 the service user, set `ports.wled` in the robot configuration (preferably a stable
 `/dev/serial/by-id/...` path) and `KVN_WLED_ENABLED=true` in `/etc/kvn/kvn-ros.env`, then restart
 `kvn-control.service`.
+
+The status display (`kvn_display`) is disabled by default. To enable it, set its driver and bus
+in the `display` section of the robot configuration, enable that bus on the Pi and add the
+service user to its groups (`i2c`; or `spi` and `gpio`, see `kvn_display/README.md`), then set
+`KVN_DISPLAY_ENABLED=true` in `/etc/kvn/kvn-ros.env` and restart `kvn-control.service`.
 
 ## Install
 

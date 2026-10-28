@@ -1,0 +1,40 @@
+# KVN rover hardware configuration: device ports and battery limits, in one place.
+#
+# The bring-up launch files read this file (kvn_robot_bringup.robot_config) and pass each value to
+# the node that uses it, overriding that node's own YAML. Set KVN_ROBOT_CONFIG to the path of a
+# copy (e.g. /etc/kvn/robot.yaml in kvn-ros.env) to configure a rover without editing the
+# workspace. Values not listed here stay in the per-node files; see README.md
+# ("Robot configuration") for what is and is not covered.
+
+ports:
+  motors: /dev/ttyAMA0            # DDSM-210 RS-485 bus (ros2_control hardware in the URDF)
+  rc_receiver: /dev/ttyAMA1       # ELRS receiver, CRSF
+  rc_receiver_baudrate: 460800    # must match the receiver's "Serial baud" setting
+  lidar: /dev/ttyAMA2             # RPLIDAR C1
+  lidar_baudrate: 460800
+  imu: /dev/spidev0.0             # ISM330DHCX on SPI0
+  wled: /dev/ttyACM0              # WLED ESP32 (signalling light), only used with use_wled:=true
+
+# INA3221 power monitor at I2C1 0x40, resolved to its hwmonN directory at startup.
+power_monitor: /sys/bus/i2c/devices/1-0040
+
+# 4S Li-ion pack.
+battery:
+  cells: 4
+  # Usable energy, empty (first curve point) to full: 4S x 2.5 Ah x 3.6 V nominal.
+  capacity_wh: 36.0
+  warn_voltage: 13.6              # 3.4 V/cell: WRN:BATT, amber light
+  critical_voltage: 12.4          # 3.1 V/cell: FLT:BATT, red light, return home now
+  overvoltage_warn: 16.9          # 4.225 V/cell
+  overvoltage_error: 17.0         # 4.25 V/cell
+  # Resting cell voltage at 0 %, 10 %, ... 100 % state of charge. Under load the voltage sags, so
+  # the estimate reads low while driving (the return home triggers early, not late).
+  cell_voltage_curve: [3.00, 3.30, 3.45, 3.55, 3.62, 3.68, 3.75, 3.83, 3.92, 4.05, 4.20]
+
+# Battery-based return to home (kvn_orchestrator BatteryReturnHome): go home when the voltage is
+# at or below battery.critical_voltage, or when the energy left is no more than
+# distance_home x path_factor x wh_per_m + reserve_wh.
+return_home:
+  wh_per_m: 0.02                  # measure: (motor + compute Wh) / metres over a typical drive
+  path_factor: 1.5                # driven distance / straight-line distance
+  reserve_wh: 4.0

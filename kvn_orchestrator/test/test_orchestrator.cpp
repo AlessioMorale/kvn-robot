@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <limits>
 #include <fstream>
 #include <sstream>
 #include <functional>
@@ -30,7 +31,9 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
+#include <sensor_msgs/msg/battery_state.hpp>
 #include <sensor_msgs/msg/joy.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <tf2_ros/transform_broadcaster.hpp>
@@ -47,9 +50,29 @@ namespace
 std::vector<std::string> plugins()
 {
   return {
-    KVN_PLUGIN_CONDITIONS, KVN_PLUGIN_ACTIONS, KVN_PLUGIN_CONTROL,
+    KVN_PLUGIN_CONDITIONS, KVN_PLUGIN_ACTIONS, KVN_PLUGIN_CONTROL, KVN_PLUGIN_AUTONOMY,
     "nav2_behavior_tree:nav2_navigate_to_pose_action_bt_node",
     "nav2_behavior_tree:nav2_goal_reached_condition_bt_node"};
+}
+
+/// What orchestrator.yaml and robot.yaml put on the root blackboard.
+kvn_orchestrator::TreeHostOptions default_options()
+{
+  kvn_orchestrator::TreeHostOptions options;
+  options.tree_file = KVN_TREE_FILE;
+  options.plugin_libraries = plugins();
+  options.blackboard_entries = {
+    {"require_robot_status", rclcpp::ParameterValue(true)},
+    {"battery_warn_voltage", rclcpp::ParameterValue(13.6)},
+    {"battery_critical_voltage", rclcpp::ParameterValue(12.4)},
+    {"battery_cells", rclcpp::ParameterValue(4)},
+    {"battery_capacity_wh", rclcpp::ParameterValue(36.0)},
+    {"battery_cell_voltage_curve", rclcpp::ParameterValue(std::vector<double>{3.0, 4.2})},
+    {"battery_wh_per_m", rclcpp::ParameterValue(0.02)},
+    {"battery_path_factor", rclcpp::ParameterValue(1.5)},
+    {"battery_reserve_wh", rclcpp::ParameterValue(4.0)},
+  };
+  return options;
 }
 
 enum class GoalEnd {kRunning, kSucceed, kAbort};
@@ -63,6 +86,21 @@ protected:
   void SetUp() override
   {
     robot_ = std::make_shared<rclcpp::Node>("fake_robot");
+    scan_pub_ = robot_->create_publisher<sensor_msgs::msg::LaserScan>("/scan", 10);
+    robot_status_pub_ = robot_->create_publisher<std_msgs::msg::String>("/robot_status", 10);
+    battery_pub_ = robot_->create_publisher<sensor_msgs::msg::BatteryState>("/battery_state", 10);
+    mode_sub_ = robot_->create_subscription<std_msgs::msg::String>(
+      "/orchestrator/mode", rclcpp::QoS(10).reliable().transient_local(),
+      [this](const std_msgs::msg::String::SharedPtr m) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        mode_ = m->data;
+      });
+    permit_sub_ = robot_->create_subscription<std_msgs::msg::Bool>(
+      "/orchestrator/autonomy_enabled", rclcpp::QoS(10).reliable().transient_local(),
+      [this](const std_msgs::msg::Bool::SharedPtr m) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        permit_ = m->data;
+      });
     orch_node_ = std::make_shared<nav2::LifecycleNode>("kvn_orchestrator_test_node");
     orch_node_->configure();
     orch_node_->activate();
@@ -123,9 +161,7 @@ protected:
     if (!delay_server_) {
       start_nav_server();
     }
-    kvn_orchestrator::TreeHostOptions options;
-    options.tree_file = KVN_TREE_FILE;
-    options.plugin_libraries = plugins();
+    auto options = default_options();
     options.tick_period_s = tick_period_s;
     host_ = std::make_unique<kvn_orchestrator::TreeHost>(orch_node_, options);
   }
@@ -137,8 +173,19 @@ protected:
     if (joy_enabled_) {
       sensor_msgs::msg::Joy joy;
       joy.buttons = buttons_;
+      joy.axes = axes_;
       joy_pub_->publish(joy);
     }
+    if (scan_enabled_) {
+      scan_pub_->publish(sensor_msgs::msg::LaserScan());
+    }
+    std_msgs::msg::String robot_status;
+    robot_status.data = robot_status_;
+    robot_status_pub_->publish(robot_status);
+    sensor_msgs::msg::BatteryState battery;
+    battery.voltage = static_cast<float>(battery_voltage_);
+    battery.percentage = std::numeric_limits<float>::quiet_NaN();
+    battery_pub_->publish(battery);
 
     nav_msgs::msg::Odometry odom;
     odom.twist.twist.linear.x = moving_ ? 0.5 : 0.0;
@@ -193,6 +240,14 @@ protected:
   void set_moving(bool v) {locked<int>([&] {moving_ = v; return 0;});}
   void set_tf(bool v) {locked<int>([&] {tf_enabled_ = v; return 0;});}
   void set_joy(bool v) {locked<int>([&] {joy_enabled_ = v; return 0;});}
+  /// axes[1] forward stick, axes[0] steering (left +), axes[4] mode switch.
+  void set_axes(std::vector<float> a) {locked<int>([&] {axes_ = std::move(a); return 0;});}
+  void set_mode_switch(float v) {locked<int>([&] {axes_.at(4) = v; return 0;});}
+  void set_scan(bool v) {locked<int>([&] {scan_enabled_ = v; return 0;});}
+  void set_robot_status(const std::string & v) {locked<int>([&] {robot_status_ = v; return 0;});}
+  void set_battery(double v) {locked<int>([&] {battery_voltage_ = v; return 0;});}
+  std::string mode() {return locked<std::string>([&] {return mode_;});}
+  bool permit() {return locked<bool>([&] {return permit_;});}
   void end_goal(GoalEnd end, double arrive_x = 0.0, double arrive_y = 0.0)
   {
     locked<int>([&] {goal_end_ = end; arrive_x_ = arrive_x; arrive_y_ = arrive_y; return 0;});
@@ -258,6 +313,11 @@ protected:
   rclcpp::executors::SingleThreadedExecutor robot_executor_;
   std::thread robot_thread_;
   rclcpp::Publisher<sensor_msgs::msg::Joy>::SharedPtr joy_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr scan_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr robot_status_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr battery_pub_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr mode_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr permit_sub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
   rclcpp::Publisher<explore_lite_msgs::msg::ExploreStatus>::SharedPtr explore_pub_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
@@ -269,6 +329,13 @@ protected:
 
   std::mutex mutex_;  // guards everything below
   std::vector<int> buttons_{0, 0, 0, 0};
+  // Mode switch high (autonomous) unless a test says otherwise.
+  std::vector<float> axes_{0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+  bool scan_enabled_{true};
+  std::string robot_status_{"RDY"};
+  double battery_voltage_{16.0};
+  std::string mode_;
+  bool permit_{false};
   bool moving_{false};
   bool tf_enabled_{true};
   bool joy_enabled_{true};
@@ -473,6 +540,95 @@ TEST_F(OrchestratorTest, ChordIsIgnoredWhileMoving)
   EXPECT_FALSE(has_status("home_set"));
 }
 
+TEST_F(OrchestratorTest, ModeSwitchSelectsModeAndAutonomyPermit)
+{
+  capture_startup_home(0.0, 0.0);
+  ASSERT_TRUE(spin_until([this] {return mode() == "autonomous" && permit();}));
+
+  set_mode_switch(0.0f);
+  ASSERT_TRUE(spin_until([this] {return mode() == "assisted_teleop" && permit();}));
+
+  set_mode_switch(-1.0f);
+  ASSERT_TRUE(spin_until([this] {return mode() == "teleop" && !permit();}));
+
+  // AUX1 always withdraws the permit; in an autonomous mode it is reported as an override.
+  set_mode_switch(1.0f);
+  set_buttons({1, 0, 0, 0});
+  ASSERT_TRUE(spin_until([this] {return mode() == "teleop_override" && !permit();}));
+  set_buttons({0, 0, 0, 0});
+  ASSERT_TRUE(spin_until([this] {return mode() == "autonomous" && permit();}));
+}
+
+TEST_F(OrchestratorTest, TeleopModeBlocksReturnHome)
+{
+  capture_startup_home(1.0, 2.0);
+  set_mode_switch(-1.0f);
+  set_buttons({0, 0, 1, 0});
+  spin_for(1500ms);
+  EXPECT_EQ(goal_count(), 0u);
+  EXPECT_FALSE(has_status("returning_home"));
+}
+
+TEST_F(OrchestratorTest, InitialisationHoldsAutonomyUntilEveryInputIsHealthy)
+{
+  set_scan(false);
+  start();
+  ASSERT_TRUE(spin_until([this] {return has_status("waiting_for_lidar");}));
+  EXPECT_EQ(mode(), "initialising");
+  EXPECT_FALSE(permit());
+
+  set_scan(true);
+  ASSERT_TRUE(spin_until([this] {return mode() == "autonomous" && permit();}));
+
+  // A fault after start-up blocks autonomy as "fault"...
+  set_robot_status("FLT:HWMON");
+  ASSERT_TRUE(spin_until([this] {return mode() == "fault" && !permit();}));
+  EXPECT_TRUE(has_status("robot_fault"));
+  // ...but a battery fault must still let the rover drive home.
+  set_robot_status("FLT:BATT");
+  ASSERT_TRUE(spin_until([this] {return mode() == "autonomous";}));
+}
+
+TEST_F(OrchestratorTest, AssistedTeleopSendsAGoalAheadAndCancelsWhenSticksCentre)
+{
+  capture_startup_home(0.0, 0.0);
+  set_axes({0.0f, 0.0f, 0.0f, 0.0f, 0.0f});  // assisted, sticks centred
+  ASSERT_TRUE(spin_until([this] {return mode() == "assisted_teleop";}));
+  spin_for(500ms);
+  EXPECT_EQ(goal_count(), 0u) << "centred sticks must not move the rover";
+
+  set_axes({0.0f, 1.0f, 0.0f, 0.0f, 0.0f});  // full forward
+  ASSERT_TRUE(spin_until([this] {return goal_active();}));
+  const auto sent = goal(0);
+  EXPECT_NEAR(sent.pose.position.x, 1.5, 1e-6) << "lookahead ahead of the rover";
+  EXPECT_NEAR(sent.pose.position.y, 0.0, 1e-6);
+
+  set_axes({0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
+  ASSERT_TRUE(spin_until([this] {return cancels() == 1;}));
+}
+
+TEST_F(OrchestratorTest, LowBatteryDrivesHomeOnlyWhenAutonomyIsAllowed)
+{
+  capture_startup_home(1.0, 2.0);
+  set_pose(5.0, 5.0);
+  set_mode_switch(-1.0f);
+  set_battery(12.0);  // below the critical voltage
+  spin_for(6s);
+  EXPECT_EQ(goal_count(), 0u) << "teleop mode: the operator decides";
+
+  set_mode_switch(1.0f);
+  ASSERT_TRUE(spin_until([this] {return goal_active();}, 10s)) << "after the 5 s hold";
+  EXPECT_NEAR(goal(0).pose.position.x, 1.0, 1e-6);
+  EXPECT_NEAR(goal(0).pose.position.y, 2.0, 1e-6);
+  EXPECT_EQ(mode(), "battery_rth");
+  EXPECT_TRUE(has_status("battery_return_critical"));
+
+  end_goal(GoalEnd::kSucceed, 1.0, 2.0);
+  ASSERT_TRUE(spin_until([this] {return mode() == "battery_rth_complete" && !permit();}));
+  spin_for(800ms);
+  EXPECT_EQ(goal_count(), 1u) << "stays home";
+}
+
 /// Copies the shipped trees to a temp dir, applies a text edit to the main file and returns its
 /// path, to show that behaviour is changed by XML alone.
 std::string edited_tree(
@@ -496,7 +652,7 @@ std::string edited_tree(
 
 TEST_F(OrchestratorTest, XmlAloneRemapsTheReturnButton)
 {
-  kvn_orchestrator::TreeHostOptions options;
+  auto options = default_options();
   options.tree_file = edited_tree("remap", "return_buttons=\"2\"", "return_buttons=\"1\"");
   options.plugin_libraries = plugins();
   options.tick_period_s = 0.02;
@@ -514,7 +670,7 @@ TEST_F(OrchestratorTest, XmlAloneRemapsTheReturnButton)
 
 TEST_F(OrchestratorTest, BadXmlValueFailsAtStartup)
 {
-  kvn_orchestrator::TreeHostOptions options;
+  auto options = default_options();
   options.tree_file = edited_tree("bad", "joy_timeout_s=\"1.0\"", "joy_timeout_s=\"-1\"");
   options.plugin_libraries = plugins();
   start_nav_server();  // port values are validated once the tree could be built
@@ -523,7 +679,7 @@ TEST_F(OrchestratorTest, BadXmlValueFailsAtStartup)
 
 TEST_F(OrchestratorTest, UnknownNodeInXmlFailsAtStartup)
 {
-  kvn_orchestrator::TreeHostOptions options;
+  auto options = default_options();
   options.tree_file = edited_tree("unknown", "<AlwaysSuccess name=\"Idle\"/>", "<NoSuchNode/>");
   options.plugin_libraries = plugins();
   EXPECT_ANY_THROW(kvn_orchestrator::TreeHost(orch_node_, options));
@@ -531,7 +687,7 @@ TEST_F(OrchestratorTest, UnknownNodeInXmlFailsAtStartup)
 
 TEST_F(OrchestratorTest, RejectsMissingTreeFile)
 {
-  kvn_orchestrator::TreeHostOptions options;
+  auto options = default_options();
   options.tree_file = "/nonexistent/tree.xml";
   options.plugin_libraries = plugins();
   EXPECT_THROW(kvn_orchestrator::TreeHost(orch_node_, options), std::invalid_argument);
@@ -539,8 +695,7 @@ TEST_F(OrchestratorTest, RejectsMissingTreeFile)
 
 TEST_F(OrchestratorTest, RejectsUnknownPlugin)
 {
-  kvn_orchestrator::TreeHostOptions options;
-  options.tree_file = KVN_TREE_FILE;
+  auto options = default_options();
   options.plugin_libraries = {"/nonexistent/libnothing.so"};
   EXPECT_ANY_THROW(kvn_orchestrator::TreeHost(orch_node_, options));
 }

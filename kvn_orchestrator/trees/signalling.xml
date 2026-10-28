@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<!--
+  KVN rover signalling.
+
+  A tree of its own, ticked next to the main orchestrator tree from startup on (it needs no Nav2
+  server). It picks one signal for the operator and publishes it, latched, on /orchestrator/signal;
+  kvn_wled_signal shows it on the light. Signal names are the keys of the light's pattern table
+  (kvn_status/config/kvn_wled_signal.yaml), so adding a signal means adding a branch here and a
+  pattern there.
+
+  Priority, top to bottom: battery critical, fault, battery low, warning, then what the rover is
+  doing (from /orchestrator/mode), then teleop, start-up and standby. The battery limits are the
+  {battery_*_voltage} entries from robot.yaml.
+-->
+<root BTCPP_format="4" main_tree_to_execute="KvnSignalling">
+  <BehaviorTree ID="KvnSignalling">
+    <ReactiveFallback name="Signalling">
+      <Sequence name="Battery critical">
+        <Fallback>
+          <BatteryVoltageBelow topic="/battery_state" voltage="{battery_critical_voltage}"
+                               timeout_s="3.0"/>
+          <StringTopic topic="/robot_status" prefixes="FLT:BATT" timeout_s="3.0"/>
+        </Fallback>
+        <SetStatus topic="/orchestrator/signal" value="battery_critical"/>
+      </Sequence>
+
+      <!-- A fault on /robot_status, or /robot_status silent (kvn_status not running). -->
+      <Sequence name="Fault">
+        <Inverter>
+          <StringTopic topic="/robot_status" prefixes="FLT" match="none" timeout_s="3.0"
+                       enabled="{require_robot_status}"/>
+        </Inverter>
+        <SetStatus topic="/orchestrator/signal" value="fault"/>
+      </Sequence>
+
+      <Sequence name="Battery low">
+        <Fallback>
+          <BatteryVoltageBelow topic="/battery_state" voltage="{battery_warn_voltage}"
+                               timeout_s="3.0"/>
+          <StringTopic topic="/robot_status" prefixes="WRN:BATT" timeout_s="3.0"/>
+        </Fallback>
+        <SetStatus topic="/orchestrator/signal" value="battery_low"/>
+      </Sequence>
+
+      <Sequence name="Warning">
+        <StringTopic topic="/robot_status" prefixes="WRN" timeout_s="3.0"/>
+        <SetStatus topic="/orchestrator/signal" value="warning"/>
+      </Sequence>
+
+      <!-- What the rover is doing. The mode is re-sent every heartbeat (1 s). -->
+      <Sequence name="Returning home">
+        <StringTopic topic="/orchestrator/mode" qos="latched" timeout_s="3.0"
+                     prefixes="returning_home;battery_rth"/>
+        <SetStatus topic="/orchestrator/signal" value="returning_home"/>
+      </Sequence>
+      <Sequence name="Exploring">
+        <StringTopic topic="/orchestrator/mode" qos="latched" timeout_s="3.0" prefixes="exploring"/>
+        <SetStatus topic="/orchestrator/signal" value="exploration"/>
+      </Sequence>
+      <Sequence name="Autonomous">
+        <StringTopic topic="/orchestrator/mode" qos="latched" timeout_s="3.0"
+                     prefixes="autonomous"/>
+        <SetStatus topic="/orchestrator/signal" value="navigation"/>
+      </Sequence>
+      <Sequence name="Assisted teleop">
+        <StringTopic topic="/orchestrator/mode" qos="latched" timeout_s="3.0"
+                     prefixes="assisted_teleop"/>
+        <SetStatus topic="/orchestrator/signal" value="assisted_teleop"/>
+      </Sequence>
+      <Sequence name="Teleop driving">
+        <JoyButton topic="/joy" timeout_s="1.0" buttons="0" state="pressed"/>
+        <SetStatus topic="/orchestrator/signal" value="teleop"/>
+      </Sequence>
+      <Sequence name="Autonomy blocked">
+        <StringTopic topic="/orchestrator/mode" qos="latched" timeout_s="3.0" prefixes="fault"/>
+        <SetStatus topic="/orchestrator/signal" value="warning"/>
+      </Sequence>
+      <Sequence name="Starting up">
+        <Fallback>
+          <StringTopic topic="/orchestrator/mode" qos="latched" timeout_s="3.0"
+                       prefixes="waiting_for_nav2;initialising"/>
+          <Inverter>
+            <StringTopic topic="/orchestrator/mode" qos="latched" timeout_s="3.0"
+                         prefixes="teleop;battery_rth_complete"/>
+          </Inverter>
+        </Fallback>
+        <SetStatus topic="/orchestrator/signal" value="starting_up"/>
+      </Sequence>
+      <SetStatus name="Standby" topic="/orchestrator/signal" value="standby"/>
+    </ReactiveFallback>
+  </BehaviorTree>
+</root>

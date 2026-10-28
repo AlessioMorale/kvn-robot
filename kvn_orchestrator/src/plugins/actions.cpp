@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Alessio Morale
 // Licensed under the MIT License.
 //
-// Action plugins that act on the robot: status reporting, topic publishing and TF capture.
+// Action plugins that act on the robot: status/mode reporting, topic publishing and TF capture.
 // Navigation is not implemented here: the tree uses Nav2's own NavigateToPose BT plugin.
 
 #include <memory>
@@ -45,6 +45,37 @@ public:
   {
     get_context(config())->publish_status(
       require_input<std::string>(*this, "topic"), require_input<std::string>(*this, "value"));
+    return BT::NodeStatus::SUCCESS;
+  }
+};
+
+/// Publishes a latched std_msgs/Bool; repeats of the same value are not re-sent. The host
+/// re-sends it every heartbeat, so subscribers can require it to be fresh (e.g. the teleop node's
+/// autonomy permit).
+class SetFlag : public BT::SyncActionNode, public Preparable
+{
+public:
+  SetFlag(const std::string & name, const BT::NodeConfig & config)
+  : BT::SyncActionNode(name, config) {}
+
+  static BT::PortsList providedPorts()
+  {
+    return {
+      BT::InputPort<std::string>("topic", "std_msgs/Bool topic"),
+      BT::InputPort<bool>("value", "Value to publish"),
+    };
+  }
+
+  void prepare() override
+  {
+    get_context(config())->publisher<std_msgs::msg::Bool>(
+      require_input<std::string>(*this, "topic"), nav2::qos::LatchedPublisherQoS());
+  }
+
+  BT::NodeStatus tick() override
+  {
+    get_context(config())->publish_flag(
+      require_input<std::string>(*this, "topic"), require_input<bool>(*this, "value"));
     return BT::NodeStatus::SUCCESS;
   }
 };
@@ -130,5 +161,6 @@ BT_REGISTER_NODES(factory)
   using namespace kvn_orchestrator;  // NOLINT
   factory.registerNodeType<SetStatus>("SetStatus");
   factory.registerNodeType<PublishBool>("PublishBool");
+  factory.registerNodeType<SetFlag>("SetFlag");
   factory.registerNodeType<CaptureRobotPose>("CaptureRobotPose");
 }

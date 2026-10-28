@@ -28,12 +28,22 @@ enum class Severity
   kFault = 2,
 };
 
-/// Operating state, reported when no WARN or FAULT is active.
+/// Operating state, reported when no WARN or FAULT is active. When several inputs report one,
+/// the highest wins: teleop driving (the operator overrides everything) above the orchestrator
+/// modes, which are above plain ready.
 enum class OperatingState
 {
-  kReady,
-  kDriving,
+  kReady,         ///< RDY
+  kInitialising,  ///< INI: orchestrator waiting for EKF, localization, ...
+  kAssisted,      ///< AST: assisted teleop
+  kNavigating,    ///< NAV: autonomous (Nav2)
+  kExploring,     ///< EXP: autonomous exploration
+  kReturning,     ///< RTH: returning home (switch or battery)
+  kDriving,       ///< DRV: teleop enable held
 };
+
+/// Status-string code of a state ("RDY", "DRV", ...).
+const char * state_code(OperatingState state);
 
 /// One active (or inactive, when severity is kOk) condition from an input.
 struct Condition
@@ -47,7 +57,7 @@ struct Condition
 /**
  * @brief Reduce conditions and the operating state to the status string.
  *
- * FAULT > WARN > operating state (DRV/RDY). Among conditions of the same
+ * FAULT > WARN > operating state (DRV, RTH, EXP, NAV, AST, INI, RDY). Among conditions of the same
  * severity the one with the earliest onset wins; equal onsets go to the
  * earliest in @p conditions. The code is made printable ASCII and the result
  * is truncated to @p max_length characters.

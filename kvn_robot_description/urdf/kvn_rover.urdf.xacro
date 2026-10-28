@@ -5,6 +5,8 @@
   <xacro:arg name="prefix" default="" />
 
   <xacro:arg name="use_mock_hardware" default="false" />
+  <!-- DDSM-210 RS-485 bus; the bring-up passes ports.motors from kvn_robot_bringup's robot.yaml -->
+  <xacro:arg name="motor_device" default="/dev/ttyAMA0" />
   <xacro:arg name="mock_sensor_commands" default="false" />
   <xacro:arg name="sim_gazebo" default="false" />
   <xacro:arg name="simulation_controllers" default="" />
@@ -24,6 +26,7 @@
     name="kvn_rover"
     prefix="$(arg prefix)"
     use_mock_hardware="$(arg use_mock_hardware)"
+    motor_device="$(arg motor_device)"
     mock_sensor_commands="$(arg mock_sensor_commands)"
     sim_gazebo="$(arg sim_gazebo)"
     simulation_controllers="$(arg simulation_controllers)" />

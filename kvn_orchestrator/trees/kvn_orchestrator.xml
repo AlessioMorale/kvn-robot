@@ -5,23 +5,47 @@
   This file is the whole behaviour: which subtrees run, in which priority order, and every
   tunable (topics, buttons, timeouts, thresholds). Edit it, restart the node, done; no code change
   is needed. Node types come from BehaviorTree.CPP and from the plugin libraries listed in
-  orchestrator.yaml; README.md documents their ports.
+  orchestrator.yaml; README.md documents their ports. Values written as {name} without a matching
+  SubTree attribute come from the `blackboard.*` parameters (orchestrator.yaml, and the battery
+  limits from kvn_robot_bringup's robot.yaml).
 
   Every tick the ReactiveFallback tries its children top to bottom and stops at the first that
   does not fail. A higher-priority branch becoming active halts a lower one that is running.
+
+  Each branch publishes the current mode on /orchestrator/mode and whether Nav2 may drive the
+  rover on /orchestrator/autonomy_enabled (the teleop node only forwards Nav2's commands while it
+  is true and fresh). Holding the teleop enable switch (AUX1) always overrides everything, in the
+  teleop node itself; the TeleopOverride branch only reports it and withdraws the permit.
 -->
 <root BTCPP_format="4" main_tree_to_execute="KvnOrchestrator">
   <include path="subtrees/set_home.xml"/>
   <include path="subtrees/return_home.xml"/>
   <include path="subtrees/capture_startup_home.xml"/>
+  <include path="subtrees/modes.xml"/>
+  <include path="subtrees/initialise.xml"/>
+  <include path="subtrees/battery_return_home.xml"/>
 
   <BehaviorTree ID="KvnOrchestrator">
     <ReactiveFallback name="KVN rover orchestrator">
       <RunOnce then_skip="true">
-        <SetStatus topic="/orchestrator/status" value="starting_up"/>
+        <Sequence>
+          <Script code="system_ready_once := false; battery_rth_done := false"/>
+          <SetStatus topic="/orchestrator/status" value="starting_up"/>
+        </Sequence>
       </RunOnce>
 
-      <!-- AUX3+AUX4 held for 1.5 s: replace the home pose. -->
+      <!-- AUX1 held: the operator drives; autonomy is suspended (and resumes on release). -->
+      <SubTree ID="TeleopOverride"
+               _autoremap="true"
+               joy_topic="/joy"
+               joy_timeout_s="1.0"
+               teleop_buttons="0"
+               mode_axis="4"
+               mode_teleop_max="-0.5"
+               mode_topic="/orchestrator/mode"
+               autonomy_topic="/orchestrator/autonomy_enabled"/>
+
+      <!-- AUX3+AUX4 held for 1.5 s: replace the home pose (no motion). -->
       <SubTree ID="SetHome"
                _autoremap="true"
                joy_topic="/joy"
@@ -38,20 +62,25 @@
                base_frame="base_link"
                status_topic="/orchestrator/status"/>
 
-      <!-- AUX3 held: pause exploration and drive home. -->
-      <SubTree ID="ReturnHome"
+      <!-- Until EKF, localization, lidar, Joy and robot status are all healthy: no autonomy. -->
+      <SubTree ID="Initialise"
                _autoremap="true"
                joy_topic="/joy"
                joy_timeout_s="1.0"
-               teleop_buttons="0"
-               return_buttons="2"
-               return_blocking_buttons="3"
-               navigate_action="/navigate_to_pose"
+               odom_topic="/odom_ekf"
+               odom_timeout_s="0.5"
+               scan_topic="/scan"
+               scan_timeout_s="1.0"
                home_frame="map"
                base_frame="base_link"
+               localization_max_age_s="1.0"
+               robot_status_topic="/robot_status"
+               robot_status_timeout_s="3.0"
+               robot_status_check="{require_robot_status}"
                explore_status_topic="/explore/status"
                explore_resume_topic="/explore/resume"
-               explore_settle_s="0.5"
+               mode_topic="/orchestrator/mode"
+               autonomy_topic="/orchestrator/autonomy_enabled"
                status_topic="/orchestrator/status"/>
 
       <!-- No home pose yet: take one as soon as the rover is localized and still. -->
@@ -69,6 +98,71 @@
                base_frame="base_link"
                status_topic="/orchestrator/status"/>
 
+      <!-- Battery low (fixed threshold or not enough energy left to get home): drive home.
+           Only while the mode switch allows autonomy; in teleop mode the operator decides. -->
+      <SubTree ID="BatteryReturnHome"
+               _autoremap="true"
+               joy_topic="/joy"
+               joy_timeout_s="1.0"
+               mode_axis="4"
+               mode_teleop_max="-0.5"
+               battery_topic="/battery_state"
+               battery_timeout_s="3.0"
+               battery_hold_s="5.0"
+               navigate_action="/navigate_to_pose"
+               base_frame="base_link"
+               explore_status_topic="/explore/status"
+               explore_resume_topic="/explore/resume"
+               mode_topic="/orchestrator/mode"
+               autonomy_topic="/orchestrator/autonomy_enabled"
+               status_topic="/orchestrator/status"/>
+
+      <!-- AUX3 held, mode switch on assisted or auto: pause exploration and drive home. -->
+      <SubTree ID="ReturnHome"
+               _autoremap="true"
+               joy_topic="/joy"
+               joy_timeout_s="1.0"
+               teleop_buttons="0"
+               return_buttons="2"
+               return_blocking_buttons="3"
+               mode_axis="4"
+               mode_teleop_max="-0.5"
+               navigate_action="/navigate_to_pose"
+               home_frame="map"
+               base_frame="base_link"
+               explore_status_topic="/explore/status"
+               explore_resume_topic="/explore/resume"
+               explore_settle_s="0.5"
+               mode_topic="/orchestrator/mode"
+               autonomy_topic="/orchestrator/autonomy_enabled"
+               status_topic="/orchestrator/status"/>
+
+      <!-- Command mode from the 3-position switch on AUX5 (axes[4]):
+           low = teleop, middle = assisted teleop, high = autonomous (Nav2). -->
+      <SubTree ID="CommandModes"
+               _autoremap="true"
+               joy_topic="/joy"
+               joy_timeout_s="1.0"
+               mode_axis="4"
+               mode_teleop_max="-0.5"
+               mode_auto_min="0.5"
+               linear_axis="1"
+               angular_axis="0"
+               stick_axes="1;0"
+               stick_deadzone="0.1"
+               assist_lookahead_m="1.5"
+               assist_min_distance_m="0.3"
+               assist_max_heading_rad="1.57"
+               navigate_action="/navigate_to_pose"
+               home_frame="map"
+               base_frame="base_link"
+               explore_status_topic="/explore/status"
+               explore_resume_topic="/explore/resume"
+               mode_topic="/orchestrator/mode"
+               autonomy_topic="/orchestrator/autonomy_enabled"
+               status_topic="/orchestrator/status"/>
+
+      <!-- Not reached: CommandModes always ends in the teleop mode. -->
       <AlwaysSuccess name="Idle"/>
     </ReactiveFallback>
   </BehaviorTree>

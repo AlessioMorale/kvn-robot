@@ -1,4 +1,6 @@
-# RC teleop: ELRS receiver (UART1, /dev/ttyAMA1) -> /joy -> teleop_twist_joy -> /cmd_vel
+# RC teleop: ELRS receiver -> /joy -> teleop_twist_joy_node (kvn_joy_teleop) -> /cmd_vel
+#                                 Nav2 -> /cmd_vel_auto --^
+# Serial port and baud rate come from robot.yaml (ports.rc_receiver*).
 #
 # CRSF channels (AETR, mode 2 handset):
 #   ch0 = CH1 aileron  (right stick X)
@@ -7,6 +9,8 @@
 #   ch3 = CH4 rudder   (left stick X)
 #   ch4..7 = AUX1..4   (switches)
 #   ch5    = AUX2      speed switch: high = turbo (buttons[1]); low and mid = normal
+#   ch8    = AUX5      command mode, 3-position switch -> axes[4] (kvn_orchestrator):
+#                      low = teleop, middle = assisted teleop, high = autonomous (Nav2)
 #
 # Joy axes follow the usual gamepad convention: stick up = +1, stick left = +1
 # (so X axes are inverted). teleop_twist_joy then needs no inversion.
@@ -21,22 +25,23 @@ crsf_joy_node:
     failsafe_timeout_ms: 300
     send_failsafe_continuously: true
     axis_mappings:
-      #          ail    ele    thr    rud
-      channels: [0,     1,     2,     3]
-      scale:    [1.0,   1.0,   1.0,   1.0]
-      offset:   [0.0,   0.0,   0.0,   0.0]
-      invert:   [true,  false, false, true]
-      deadzone: [0.05,  0.05,  0.0,   0.05]
-      min:      [-1.0,  -1.0,  -1.0,  -1.0]
-      max:      [1.0,   1.0,   1.0,   1.0]
+      #          ail    ele    thr    rud    AUX5 (mode)
+      channels: [0,     1,     2,     3,     8]
+      scale:    [1.0,   1.0,   1.0,   1.0,   1.0]
+      offset:   [0.0,   0.0,   0.0,   0.0,   0.0]
+      invert:   [true,  false, false, true,  false]
+      deadzone: [0.05,  0.05,  0.0,   0.05,  0.0]
+      min:      [-1.0,  -1.0,  -1.0,  -1.0,  -1.0]
+      max:      [1.0,   1.0,   1.0,   1.0,   1.0]
     button_mappings:
       #           AUX1  AUX2  AUX3  AUX4
       channels:  [4,    5,    6,    7]
       # AUX2 at 0.75: a 3-pos middle (1500 us = 0.5) must not flicker turbo
       threshold: [0.5,  0.75, 0.5,  0.5]
       invert:    [false, false, false, false]
-    # Sticks centered, switches off: robot stops on RC link loss
-    failsafe_axes: [0.0, 0.0, 0.0, 0.0]
+    # Sticks centered, switches off: robot stops on RC link loss. The mode switch fails safe to
+    # the middle (assisted teleop with centred sticks = standing still, battery return allowed).
+    failsafe_axes: [0.0, 0.0, 0.0, 0.0, 0.0]
     failsafe_buttons: [0, 0, 0, 0]
     telemetry_battery_enabled: true
     battery_topic: /battery_state
@@ -48,11 +53,14 @@ crsf_joy_node:
     status_period_ms: 500
     status_timeout_ms: 2000
 
+# kvn_joy_teleop's teleop_override_node, same parameters as teleop_twist_joy plus arbitration.
+# AUX1 held: the sticks drive, whatever the mode (operator override). Otherwise Nav2's command is
+# forwarded while it is fresh, Joy is alive and the orchestrator's permit is true and fresh.
 teleop_twist_joy_node:
   ros__parameters:
     require_enable_button: true  # motion only while AUX1 is high (handset arm + deadman)
     enable_button: 0              # AUX1 = buttons[0]
-    enable_turbo_button: 1        # AUX2 = buttons[1], high = turbo
+    enable_turbo_button: 1        # AUX2 = buttons[1], high = turbo (needs AUX1 too)
     axis_linear:
       x: 1                        # elevator, right stick Y
     scale_linear:
@@ -66,3 +74,11 @@ teleop_twist_joy_node:
     scale_angular_turbo:
       yaw: 2.0                    # rad/s
     publish_stamped_twist: false  # skid_steer_controller takes geometry_msgs/Twist
+
+    auto_cmd_topic: /cmd_vel_auto           # Nav2 velocity_smoother output
+    auto_timeout_s: 0.5
+    joy_timeout_s: 0.5                      # crsf_joy_node publishes at 50 Hz, also in failsafe
+    require_joy_for_auto: true              # no autonomy without a way to override it
+    autonomy_topic: /orchestrator/autonomy_enabled
+    autonomy_timeout_s: 3.0                 # the orchestrator re-sends it every second
+    require_autonomy_permit: true

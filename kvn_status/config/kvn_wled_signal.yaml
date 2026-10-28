@@ -5,6 +5,10 @@ kvn_wled_signal_node:
     segment_id: 0
     brightness: 64
     mode_topic: /robot_mode
+    # Chosen by kvn_orchestrator's signalling tree; used while fresh (re-sent every second).
+    # Without it (no orchestrator) the node picks the mode itself from the topics below.
+    signal_topic: /orchestrator/signal
+    signal_timeout_s: 3.0
     robot_status_topic: /robot_status
     battery_topic: /battery_state
     joy_topic: /joy

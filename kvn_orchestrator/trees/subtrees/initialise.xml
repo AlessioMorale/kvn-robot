@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<!--
+  Initialisation and safety gate. SUCCEEDS (holding back every lower-priority branch, so no
+  autonomy) while a requirement is missing, and FAILS once all of them are met:
+
+    EKF odometry fresh -> localization (map -> base_link) fresh -> lidar fresh -> Joy fresh
+    (an operator can always override) -> /robot_status has no fault other than battery
+    (a battery fault must still allow the rover to drive home).
+
+  The first missing requirement is reported on the status topic. The mode is `initialising` until
+  everything has been healthy once, `fault` when something is lost later. Exploration is paused
+  and the autonomy permit withdrawn while the gate is closed.
+-->
+<root BTCPP_format="4">
+  <BehaviorTree ID="Initialise">
+    <Fallback name="Initialise">
+      <Sequence name="Hold while not ready">
+        <Fallback name="First missing requirement">
+          <Sequence>
+            <Inverter>
+              <TopicFresh topic="{odom_topic}" type="nav_msgs/msg/Odometry"
+                          timeout_s="{odom_timeout_s}"/>
+            </Inverter>
+            <Script code="init_reason := 'waiting_for_ekf'"/>
+          </Sequence>
+          <Sequence>
+            <Inverter>
+              <TransformFresh parent_frame="{home_frame}" child_frame="{base_frame}"
+                              max_age_s="{localization_max_age_s}"/>
+            </Inverter>
+            <Script code="init_reason := 'waiting_for_localization'"/>
+          </Sequence>
+          <Sequence>
+            <Inverter>
+              <TopicFresh topic="{scan_topic}" type="sensor_msgs/msg/LaserScan"
+                          timeout_s="{scan_timeout_s}"/>
+            </Inverter>
+            <Script code="init_reason := 'waiting_for_lidar'"/>
+          </Sequence>
+          <Sequence>
+            <Inverter>
+              <JoyButton topic="{joy_topic}" timeout_s="{joy_timeout_s}" buttons="0" state="any"/>
+            </Inverter>
+            <Script code="init_reason := 'waiting_for_joy'"/>
+          </Sequence>
+          <Sequence>
+            <Inverter>
+              <Fallback name="No blocking fault">
+                <StringTopic topic="{robot_status_topic}" prefixes="FLT" match="none"
+                             timeout_s="{robot_status_timeout_s}"
+                             enabled="{robot_status_check}"/>
+                <StringTopic topic="{robot_status_topic}" prefixes="FLT:BATT" match="any"
+                             timeout_s="{robot_status_timeout_s}"
+                             enabled="{robot_status_check}"/>
+              </Fallback>
+            </Inverter>
+            <Script code="init_reason := 'robot_fault'"/>
+          </Sequence>
+        </Fallback>
+        <Script code="init_mode := system_ready_once ? 'fault' : 'initialising'"/>
+        <SetFlag topic="{autonomy_topic}" value="false"/>
+        <SetStatus topic="{mode_topic}" value="{init_mode}"/>
+        <SetStatus topic="{status_topic}" value="{init_reason}"/>
+        <ForceSuccess name="Pause exploration">
+          <Sequence>
+            <IsExploring topic="{explore_status_topic}"/>
+            <PublishBool topic="{explore_resume_topic}" value="false"/>
+          </Sequence>
+        </ForceSuccess>
+      </Sequence>
+
+      <Sequence name="Ready">
+        <Script code="system_ready_once := true"/>
+        <AlwaysFailure/>
+      </Sequence>
+    </Fallback>
+  </BehaviorTree>
+</root>

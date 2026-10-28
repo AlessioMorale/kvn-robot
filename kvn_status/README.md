@@ -41,20 +41,24 @@ Its parameters are in [config/kvn_wled_signal.yaml](config/kvn_wled_signal.yaml)
 For the systemd-managed rover, enable it in `/etc/kvn/kvn-ros.env` with
 `KVN_WLED_ENABLED=true` and set `KVN_WLED_PORT` to the ESP32 device path.
 
-`/robot_mode` publishes the selected mode as `std_msgs/String`. Priority is critical battery,
-robot fault, low battery, warning, exploration, Nav2 navigation, teleop, then standby; before the
-first `/robot_status` message the mode is `starting_up`. Battery limits default to 12.4 V critical
-and 13.6 V low for the rover's 4S pack. The teleop mode follows the configured `/joy` enable button,
-not measured wheel motion.
+While `kvn_orchestrator` runs, its signalling tree chooses the mode and publishes it on
+`/orchestrator/signal` (re-sent every second); the node shows that signal while it is fresh
+(`signal_timeout_s`, 3 s). Without the orchestrator (it only runs with Nav2) the node chooses
+itself: critical battery, robot fault, low battery, warning, exploration, Nav2 navigation, teleop,
+then standby; before the first `/robot_status` message the mode is `starting_up`. Battery limits
+and the serial port come from `kvn_robot_bringup/config/robot.yaml` (12.4 V critical, 13.6 V low
+for the rover's 4S pack). The teleop mode follows the configured `/joy` enable button, not
+measured wheel motion. `/robot_mode` publishes the mode shown as `std_msgs/String`.
 
 | Mode | WLED indication | Note |
 |---|---|---|
 | `starting_up` | Blue breathe | Change to yellow breathe |
 | `standby` | Dim white | 10% cycle blink 2s |
 | `teleop` | Green | 10% cycle blink 1s |
-| `assisted teleop` | Purple | 10% cycle blink 1s |
+| `assisted_teleop` | Purple | 10% cycle blink 1s |
 | `navigation` | Blue | 10% cycle blink 1s |
 | `exploration` | Cyan | 10% cycle blink 1s |
+| `returning_home` | Yellow blink | Return home (switch or battery); orchestrator only |
 | `battery_low` | Amber blink | 10% cycle blink 0.5s |
 | `battery_critical` | Red blink | 10% cycle blink 0.5s |
 | `warning` / `fault` | Amber solid / magenta blink | 10% cycle blink 0.25s |
@@ -64,9 +68,10 @@ WLED effect IDs use the standard WLED order: 0 solid, 1 blink, 2 breathe.
 ## Behaviour-tree orchestrator
 
 The `kvn_orchestrator` package runs a BehaviorTree.CPP behaviour tree (defined in XML) from
-`nav_stack.launch.py` when Nav2 is enabled. Controls, cancellation behavior, status
-values, and safety thresholds are documented in
-[kvn_orchestrator/README.md](../kvn_orchestrator/README.md).
+`nav_stack.launch.py` when Nav2 is enabled. Command modes, safety gates, cancellation behavior,
+status values and thresholds are documented in
+[kvn_orchestrator/README.md](../kvn_orchestrator/README.md). This node reads its mode through the
+`mode` input type (below), so the handset shows what the rover is doing.
 
 ## Output
 
@@ -80,12 +85,14 @@ values, and safety thresholds are documented in
 | `WRN` | A warning |
 | `RDY` | No fault or warning; teleop disabled |
 | `DRV` | No fault or warning; teleop enable (AUX1) is high |
-| `AST` | No fault or warning; Assisted teleop |
-| `NAV` | No fault or warning; Navigation |
-| `EXP` | No fault or warning; Exploration |
-| `UNK` | Unknown state, no input received |
+| `RTH` | No fault or warning; returning home (AUX3 or battery), orchestrator mode |
+| `EXP` | No fault or warning; exploration, orchestrator mode |
+| `NAV` | No fault or warning; autonomous (Nav2), orchestrator mode |
+| `AST` | No fault or warning; assisted teleop, orchestrator mode |
+| `INI` | No fault or warning; orchestrator initialising (waiting for EKF, localization, ...) |
 
-Priority is `FLT` > `WRN` > `NAV` | `EXP` > `DRV` | `AST` > `RDY`. Among several faults (or warnings) the **oldest** active one is shown (earliest onset; equal onsets go to the first input in `inputs`).
+Priority is `FLT` > `WRN` > `DRV` > `RTH` > `EXP` > `NAV` > `AST` > `INI` > `RDY`: the teleop
+enable switch overrides every mode, so it wins over the orchestrator's state. Among several faults (or warnings) the **oldest** active one is shown (earliest onset; equal onsets go to the first input in `inputs`).
 
 **Staleness**: an input with no update for `timeout_s` is reported as `FLT:<stale_code>`, so a dead sensor never shows as `RDY`. An input never received is given `timeout_s` of grace after startup. Time is measured on the steady clock.
 
@@ -105,7 +112,7 @@ ROS params files can't hold lists of dicts, so inputs are listed by name and con
 
 | Name | Default | Description |
 |---|---|---|
-| `<name>.type` | none | `diagnostics`, `battery` or `joy` |
+| `<name>.type` | none | `diagnostics`, `battery`, `joy` or `mode` |
 | `<name>.topic` | per type | Topic to subscribe to |
 | `<name>.timeout_s` | per type | Staleness timeout (and startup grace) |
 | `<name>.code` | `<NAME>` upper case | Code shown with `WRN`/`FLT` |
@@ -118,6 +125,7 @@ ROS params files can't hold lists of dicts, so inputs are listed by name and con
 | `diagnostics` | `diagnostic_msgs/DiagnosticArray` | `/diagnostics`, 3 s | `name_contains` (default: the input name) | Statuses whose name contains `name_contains`: worst level wins. ERROR/STALE → `FLT`, WARN → `WRN`. Staleness counts from the last array with a matching status |
 | `battery` | `sensor_msgs/BatteryState` | `/battery_state`, 3 s | `warn_voltage` (13.6), `fault_voltage` (12.4) | `voltage <= fault_voltage` or not finite → `FLT`; `<= warn_voltage` → `WRN` |
 | `joy` | `sensor_msgs/Joy` | `/joy`, 1 s | `enable_button` (0) | `buttons[enable_button]` high → `DRV`, else `RDY`. Only staleness raises a fault |
+| `mode` | `std_msgs/String` (latched) | `/orchestrator/mode`, 3 s | `optional` (true) | Orchestrator mode → `INI`/`AST`/`NAV`/`EXP`/`RTH`; its `fault` (autonomy blocked) → `WRN`. With `optional`, a silent orchestrator is no fault, just no state |
 
 ## Adding an input type
 

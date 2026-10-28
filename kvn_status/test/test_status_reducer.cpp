@@ -44,6 +44,11 @@ TEST(ReduceStatus, OkConditionsAreIgnored)
 TEST(ReduceStatus, DrivingWhenEnabled)
 {
   EXPECT_EQ(reduce_status({ok()}, OperatingState::kDriving), "DRV");
+  EXPECT_EQ(reduce_status({ok()}, OperatingState::kInitialising), "INI");
+  EXPECT_EQ(reduce_status({ok()}, OperatingState::kAssisted), "AST");
+  EXPECT_EQ(reduce_status({ok()}, OperatingState::kNavigating), "NAV");
+  EXPECT_EQ(reduce_status({ok()}, OperatingState::kExploring), "EXP");
+  EXPECT_EQ(reduce_status({ok()}, OperatingState::kReturning), "RTH");
 }
 
 TEST(ReduceStatus, WarnBeatsOperatingState)

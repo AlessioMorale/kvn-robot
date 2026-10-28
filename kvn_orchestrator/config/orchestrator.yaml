@@ -6,15 +6,39 @@ kvn_orchestrator_node:
     tree_file: ""
     # Tree to run; empty uses main_tree_to_execute from the XML file.
     tree_id: ""
+    # Second tree, ticked from startup on: picks the signalling-light pattern. Overridden by the
+    # launch file with trees/signalling.xml of this package; empty disables it.
+    signalling_tree_file: ""
     # BT node plugins to load: "name" (this package), "package:name" (e.g. Nav2's BT plugins) or
     # an absolute .so path.
     plugin_libraries:
       - kvn_bt_conditions
       - kvn_bt_actions
       - kvn_bt_control
+      - kvn_bt_autonomy
       - nav2_behavior_tree:nav2_navigate_to_pose_action_bt_node
       - nav2_behavior_tree:nav2_goal_reached_condition_bt_node
     tick_period_s: 0.1
+    # Latched mode/status/permit topics are re-sent at this period, so that subscribers (teleop
+    # node, kvn_status, WLED) can tell a running orchestrator from a dead one.
+    heartbeat_period_s: 1.0
+    # Mode reported until the main tree is built (Nav2 servers up).
+    boot_status_topic: /orchestrator/mode
+    boot_status: waiting_for_nav2
+
+    # Root blackboard entries, readable from the XML as {name}. The launch file overrides the
+    # battery_* values with kvn_robot_bringup/config/robot.yaml when it is given (robot_config).
+    blackboard:
+      # false where /robot_status is not published (simulation): skips the robot-fault checks
+      require_robot_status: true
+      battery_warn_voltage: 13.6
+      battery_critical_voltage: 12.4
+      battery_cells: 4
+      battery_capacity_wh: 36.0
+      battery_cell_voltage_curve: [3.00, 3.30, 3.45, 3.55, 3.62, 3.68, 3.75, 3.83, 3.92, 4.05, 4.20]
+      battery_wh_per_m: 0.02
+      battery_path_factor: 1.5
+      battery_reserve_wh: 4.0
 
     # Settings read by Nav2's BT nodes, same meaning as in bt_navigator.
     server_timeout_ms: 20

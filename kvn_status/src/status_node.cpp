@@ -91,9 +91,9 @@ void StatusNode::evaluate_and_publish(bool force)
   for (const auto & input : inputs_)
   {
     conditions.push_back(input->evaluate(now));
-    if (input->operating_state(now) == OperatingState::kDriving)
+    if (const auto input_state = input->operating_state(now); input_state && *input_state > state)
     {
-      state = OperatingState::kDriving;
+      state = *input_state;
     }
   }
 

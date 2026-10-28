@@ -6,6 +6,8 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 
+from kvn_robot_bringup import robot_config
+
 
 def generate_launch_description():
     # rplidar_driver is a lifecycle node: its launch file configures and activates it.
@@ -14,8 +16,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([FindPackageShare('rplidar_driver'), 'launch', 'rplidar_with_args.launch.py'])),
         launch_arguments={
-            'serial_port': '/dev/ttyAMA2',
-            'serial_baudrate': '460800',
+            # serial_port, serial_baudrate from robot.yaml
+            **robot_config.lidar_launch_arguments(robot_config.load()),
             'frame_id': 'lidar_attachment_link',
             'angle_compensate': 'true',
             'scan_mode': 'Standard',

@@ -88,6 +88,39 @@ ros2 launch kvn_robot_bringup robot.launch.py
 
 That launch file starts real hardware components (drive motors, ELRS receiver, IMU, lidar, OAK camera), then fuse odometry, slam_toolbox and Nav2. Check the device paths and configuration before using it on a rover. Pass `use_nav2:=false` to run without Nav2.
 
+### Robot configuration
+
+Device ports and battery limits live in one file, [`kvn_robot_bringup/config/robot.yaml`](kvn_robot_bringup/config/robot.yaml):
+
+| Section | Used by |
+|---|---|
+| `ports.motors` | URDF ros2_control hardware (`motor_device` xacro argument) |
+| `ports.rc_receiver`, `rc_receiver_baudrate` | `crsf_joy_node` |
+| `ports.lidar`, `lidar_baudrate` | RPLIDAR driver |
+| `ports.imu` | `ism330dhcx_node` |
+| `ports.wled` | `kvn_wled_signal` |
+| `power_monitor` | `hwmon_diagnostic_updater` (INA3221) |
+| `battery.*` | hwmon limits, `kvn_status` (`WRN`/`FLT:BATT`), WLED, orchestrator signalling and return-home |
+| `return_home.*` | orchestrator battery return-home energy model |
+
+The launch files read it through `kvn_robot_bringup.robot_config`, which validates it and overrides
+each node's own YAML. Set `KVN_ROBOT_CONFIG` to use another copy (on the robot,
+`/etc/kvn/robot.yaml` via `/etc/kvn/kvn-ros.env`). Wheel radius, track width and `chi` stay in
+`controllers.yaml`: they are calibration results, and the controller spawner needs them in a params
+file.
+
+### Driving and command modes
+
+`kvn_joy_teleop`'s `teleop_override_node` runs as `teleop_twist_joy_node` with the same parameters
+(`teleop.yaml`) and is the only `/cmd_vel` publisher. With AUX1 held it drives from the sticks
+(AUX2 adds turbo), in every mode. Otherwise it forwards Nav2's `/cmd_vel_auto` while Joy is alive
+and `kvn_orchestrator` permits it on `/orchestrator/autonomy_enabled`; on every hand-over it sends
+one stop. `/cmd_vel_source` reports `teleop`, `auto` or `none`. The AUX5 switch selects teleop,
+assisted teleop or autonomous; see [kvn_orchestrator/README.md](kvn_orchestrator/README.md).
+
+In simulation there is no RC receiver: `sim_nav_stack.launch.py` runs the node without the Joy
+and permit requirements, so Nav2 goals drive the simulated rover as before.
+
 Launch files in `kvn_robot_bringup/launch`:
 
 | Launch file | Runs on | Starts |
@@ -108,7 +141,7 @@ Run `robot` alone, or its layers separately; do not start `robot` together with 
 | `kvn_robot_description` | Rover URDF/Xacro, meshes, frames and RViz configuration. |
 | `kvn_robot_bringup` | Simulation and hardware launch files, controller and subsystem configuration. |
 | `skid_steer_controller`, `kvn_odometry`, `kvn_ekf` | Drive control, wheel odometry and fused odometry. |
-| `kvn_joy_teleop`, `kvn_status`, `kvn_orchestrator` | Teleoperation, health reporting, and joystick-driven behaviour-tree autonomy. |
+| `kvn_joy_teleop`, `kvn_status`, `kvn_orchestrator` | Teleoperation with operator override, health reporting, and behaviour-tree command modes, safety gating, assisted teleop, return home and signalling. |
 | `kvn_video_streamer` | On-demand video to Foxglove, with optional WebRTC. |
 
 ## Status

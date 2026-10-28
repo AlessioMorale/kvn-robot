@@ -55,7 +55,7 @@ public:
   const std::string & name() const { return name_; }
 
   /// Condition of this input (stale → FAULT with the stale code).
-  Condition evaluate(TimePoint now) const { return monitor_.evaluate(now); }
+  virtual Condition evaluate(TimePoint now) const { return monitor_.evaluate(now); }
 
   /// Operating state contributed by this input, if it has one (e.g. joy enable).
   virtual std::optional<OperatingState> operating_state(TimePoint /*now*/) const

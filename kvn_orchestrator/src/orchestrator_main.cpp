@@ -25,8 +25,27 @@ int main(int argc, char ** argv)
         "plugin_libraries",
         std::vector<std::string>{
           "kvn_bt_conditions", "kvn_bt_actions", "kvn_bt_control",
+          "kvn_bt_autonomy",
           "nav2_behavior_tree:nav2_navigate_to_pose_action_bt_node",
           "nav2_behavior_tree:nav2_goal_reached_condition_bt_node"});
+      options.signalling_tree_file =
+        node->declare_or_get_parameter<std::string>("signalling_tree_file", "");
+      options.heartbeat_period_s =
+        node->declare_or_get_parameter<double>("heartbeat_period_s", 1.0);
+      options.boot_status_topic =
+        node->declare_or_get_parameter<std::string>("boot_status_topic", "/orchestrator/mode");
+      options.boot_status =
+        node->declare_or_get_parameter<std::string>("boot_status", "waiting_for_nav2");
+      // `blackboard.<name>` parameters (from the YAML or the launch file) become root blackboard
+      // entries; they are read as overrides so that any name can be used without declaring it.
+      const std::string prefix = "blackboard.";
+      for (const auto & [name, value] :
+        node->get_node_parameters_interface()->get_parameter_overrides())
+      {
+        if (name.rfind(prefix, 0) == 0 && name.size() > prefix.size()) {
+          options.blackboard_entries[name.substr(prefix.size())] = value;
+        }
+      }
       options.tick_period_s = node->declare_or_get_parameter<double>("tick_period_s", 0.1);
       options.server_timeout = std::chrono::milliseconds(
         node->declare_or_get_parameter<int>("server_timeout_ms", 20));

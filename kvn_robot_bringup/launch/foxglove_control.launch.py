@@ -10,7 +10,13 @@ for these topics:
                                                cmd_vel_timeout (1 s) after the last message, e.g.
                                                when the WiFi drops.
   /goal_pose        geometry_msgs/PoseStamped  3D panel "Publish pose", frame map: Nav2 navigates
-                                               there (bt_navigator's goal_pose subscription).
+                                               there (bt_navigator's goal_pose subscription). The
+                                               rover only moves with the AUX5 mode switch on
+                                               autonomous (the orchestrator's autonomy permit).
+
+NOTE: /cmd_vel from Foxglove bypasses teleop_twist_joy_node (kvn_joy_teleop), which arbitrates
+between the RC sticks and Nav2: the handset cannot override a Foxglove teleop command, and both
+publish to the controller while either is active.
   /explore/resume   std_msgs/Bool              false pauses exploration, true resumes it.
 
 WARNING: foxglove_bridge 3.6.2 (lyrical) does NOT enforce client_topic_whitelist. The parameter is

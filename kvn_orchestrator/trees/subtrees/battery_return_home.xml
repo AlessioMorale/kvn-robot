@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<!--
+  Battery return to home.
+
+  BatteryReturnRequired triggers (and latches) when the pack voltage is at or below the fixed
+  threshold, or when the energy left is no more than the trip home needs plus a reserve. The
+  limits come from the root blackboard ({battery_*}, set from kvn_robot_bringup/config/robot.yaml).
+
+  It only drives while the mode switch is on assisted or autonomous: in teleop mode the operator
+  is in charge (the signalling light and handset show the battery state). Holding AUX1 suspends
+  the return; releasing it resumes it. After arriving the rover stays home with the permit
+  withdrawn until the orchestrator restarts.
+-->
+<root BTCPP_format="4">
+  <BehaviorTree ID="BatteryReturnHome">
+    <ReactiveSequence name="Battery return home">
+      <JoyAxis name="Autonomy allowed by the mode switch"
+               topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+               axis="{mode_axis}" min="{mode_teleop_max}" max="1.0"/>
+      <EntryExists name="Home pose available" key="home"/>
+      <BatteryReturnRequired topic="{battery_topic}" timeout_s="{battery_timeout_s}"
+                             home="{home}" robot_base_frame="{base_frame}"
+                             critical_voltage="{battery_critical_voltage}"
+                             cells="{battery_cells}"
+                             capacity_wh="{battery_capacity_wh}"
+                             cell_voltage_curve="{battery_cell_voltage_curve}"
+                             wh_per_m="{battery_wh_per_m}"
+                             path_factor="{battery_path_factor}"
+                             reserve_wh="{battery_reserve_wh}"
+                             hold_s="{battery_hold_s}"
+                             reason="{battery_rth_reason}"/>
+      <Fallback>
+        <Sequence name="Home reached">
+          <ScriptCondition code="battery_rth_done == true"/>
+          <SetFlag topic="{autonomy_topic}" value="false"/>
+          <SetStatus topic="{mode_topic}" value="battery_rth_complete"/>
+        </Sequence>
+
+        <Sequence name="Drive home">
+          <SetFlag topic="{autonomy_topic}" value="true"/>
+          <SetStatus topic="{mode_topic}" value="battery_rth"/>
+          <Script code="battery_status := (battery_rth_reason == 'energy') ? 'battery_return_energy' : 'battery_return_critical'"/>
+          <SetStatus topic="{status_topic}" value="{battery_status}"/>
+          <SubTree ID="PauseExploration" _autoremap="true"/>
+          <Fallback>
+            <Sequence>
+              <NavigateToPose server_name="{navigate_action}" goal="{home}"
+                              error_code_id="{battery_nav_error}"
+                              error_msg="{battery_nav_error_msg}"/>
+              <!-- Nav2 reports a goal preempted by someone else as success; verify arrival. -->
+              <GoalReached goal="{home}" robot_base_frame="{base_frame}"/>
+            </Sequence>
+            <!-- Nav2 failed: stop, report, and try again after a pause. -->
+            <Sequence>
+              <SetFlag topic="{autonomy_topic}" value="false"/>
+              <SetStatus topic="{status_topic}" value="battery_return_failed"/>
+              <WaitSeconds seconds="5.0"/>
+              <AlwaysFailure/>
+            </Sequence>
+          </Fallback>
+          <Script code="battery_rth_done := true"/>
+          <SetStatus topic="{status_topic}" value="battery_return_complete"/>
+        </Sequence>
+      </Fallback>
+    </ReactiveSequence>
+  </BehaviorTree>
+</root>

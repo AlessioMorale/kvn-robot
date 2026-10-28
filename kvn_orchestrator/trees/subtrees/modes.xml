@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<!--
+  Rover command modes.
+
+  The teleop node (kvn_joy_teleop) arbitrates the velocity command itself: with AUX1 held it
+  sends the sticks, otherwise it forwards Nav2's command only while /orchestrator/autonomy_enabled
+  is true and fresh. These subtrees decide that permit and report the mode; they never command
+  velocities directly.
+-->
+<root BTCPP_format="4">
+  <!-- AUX1 held. SUCCEEDS (suspending every lower branch, which cancels their Nav2 goals) while
+       the operator drives. -->
+  <BehaviorTree ID="TeleopOverride">
+    <Sequence name="Teleop override">
+      <JoyButton name="Teleop enabled"
+                 topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                 buttons="{teleop_buttons}" state="pressed"/>
+      <SetFlag topic="{autonomy_topic}" value="false"/>
+      <Fallback>
+        <Sequence name="Teleop mode selected">
+          <JoyAxis topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                   axis="{mode_axis}" min="-1.0" max="{mode_teleop_max}"/>
+          <SetStatus topic="{mode_topic}" value="teleop"/>
+        </Sequence>
+        <SetStatus topic="{mode_topic}" value="teleop_override"/>
+      </Fallback>
+    </Sequence>
+  </BehaviorTree>
+
+  <!-- The mode switch. Always SUCCEEDS: the last branch is plain teleop. -->
+  <BehaviorTree ID="CommandModes">
+    <ReactiveFallback name="Command mode">
+      <ReactiveSequence name="Autonomous">
+        <JoyAxis name="Mode switch high"
+                 topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                 axis="{mode_axis}" min="{mode_auto_min}" max="1.0"/>
+        <SetFlag topic="{autonomy_topic}" value="true"/>
+        <!-- Nav2 accepts goals from anyone here: explore_lite, Foxglove/RViz, scripts. -->
+        <Fallback>
+          <Sequence>
+            <IsExploring topic="{explore_status_topic}"/>
+            <SetStatus topic="{mode_topic}" value="exploring"/>
+          </Sequence>
+          <SetStatus topic="{mode_topic}" value="autonomous"/>
+        </Fallback>
+      </ReactiveSequence>
+
+      <ReactiveSequence name="Assisted teleop">
+        <JoyAxis name="Mode switch middle"
+                 topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                 axis="{mode_axis}" min="{mode_teleop_max}" max="{mode_auto_min}"/>
+        <SetFlag topic="{autonomy_topic}" value="true"/>
+        <SetStatus topic="{mode_topic}" value="assisted_teleop"/>
+        <SubTree ID="PauseExploration" _autoremap="true"/>
+        <SubTree ID="AssistedTeleop" _autoremap="true"/>
+      </ReactiveSequence>
+
+      <Sequence name="Teleop">
+        <SetFlag topic="{autonomy_topic}" value="false"/>
+        <SetStatus topic="{mode_topic}" value="teleop"/>
+        <SubTree ID="PauseExploration" _autoremap="true"/>
+      </Sequence>
+    </ReactiveFallback>
+  </BehaviorTree>
+
+  <!-- Sticks deflected: Nav2 drives towards a goal placed where the operator steers, avoiding
+       obstacles. Sticks centred (or Joy lost): the goal is cancelled and the rover stops. -->
+  <BehaviorTree ID="AssistedTeleop">
+    <Fallback name="Assisted teleop">
+      <ReactiveSequence name="Steer">
+        <JoyAxesActive topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+                       axes="{stick_axes}" deadzone="{stick_deadzone}"/>
+        <Fallback>
+          <AssistedTeleopNavigate server_name="{navigate_action}"
+                                  joy_topic="{joy_topic}" joy_timeout_s="{joy_timeout_s}"
+                                  linear_axis="{linear_axis}" angular_axis="{angular_axis}"
+                                  deadzone="{stick_deadzone}"
+                                  lookahead_m="{assist_lookahead_m}"
+                                  min_distance_m="{assist_min_distance_m}"
+                                  max_heading_rad="{assist_max_heading_rad}"
+                                  global_frame="{home_frame}" robot_base_frame="{base_frame}"/>
+          <!-- Nav2 rejected or aborted the goal: report it and retry after a pause. -->
+          <Sequence>
+            <SetStatus topic="{status_topic}" value="assist_goal_failed"/>
+            <WaitSeconds seconds="1.0"/>
+          </Sequence>
+        </Fallback>
+      </ReactiveSequence>
+      <AlwaysSuccess name="Sticks centred: hold"/>
+    </Fallback>
+  </BehaviorTree>
+
+  <!-- Pause explore_lite if it is running. It reports exploration_paused afterwards, so this
+       publishes once per pause. Always SUCCEEDS. -->
+  <BehaviorTree ID="PauseExploration">
+    <ForceSuccess>
+      <Sequence>
+        <IsExploring topic="{explore_status_topic}"/>
+        <PublishBool topic="{explore_resume_topic}" value="false"/>
+      </Sequence>
+    </ForceSuccess>
+  </BehaviorTree>
+</root>

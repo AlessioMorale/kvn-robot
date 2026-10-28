@@ -13,6 +13,7 @@
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
 #include "sensor_msgs/msg/battery_state.hpp"
 #include "sensor_msgs/msg/joy.hpp"
+#include "std_msgs/msg/string.hpp"
 
 namespace kvn_status
 {
@@ -171,6 +172,65 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr sub_;
 };
 
+/**
+ * `mode`: std_msgs/String from kvn_orchestrator (/orchestrator/mode, latched, re-sent every
+ * second). Maps the orchestrator mode to an operating state (INI/AST/NAV/EXP/RTH); `fault`
+ * (autonomy blocked by a lost requirement) → WARN. With `optional` (default true) a silent
+ * orchestrator is not a fault: it only runs with Nav2, which a drive-only bring-up does not start.
+ */
+class ModeInput : public StatusInput
+{
+public:
+  ModeInput(const InputContext & context, const InputCommonConfig & config)
+  : StatusInput(context, config)
+  {
+    optional_ = context.node->declare_parameter<bool>(context.name + ".optional", true);
+    sub_ = context.node->create_subscription<std_msgs::msg::String>(
+      config_.topic, rclcpp::QoS(1).reliable().transient_local(),
+      [this](const std_msgs::msg::String::ConstSharedPtr msg) { on_msg(*msg); });
+  }
+
+  Condition evaluate(TimePoint now) const override
+  {
+    if (optional_ && (!monitor_.has_data() || monitor_.is_stale(now)))
+    {
+      return Condition{Severity::kOk, "", now};
+    }
+    return monitor_.evaluate(now);
+  }
+
+  std::optional<OperatingState> operating_state(TimePoint now) const override
+  {
+    if (!monitor_.has_data() || monitor_.is_stale(now))
+    {
+      return std::nullopt;
+    }
+    return state_;
+  }
+
+private:
+  void on_msg(const std_msgs::msg::String & msg)
+  {
+    static const std::map<std::string, OperatingState> states = {
+      {"waiting_for_nav2", OperatingState::kInitialising},
+      {"initialising", OperatingState::kInitialising},
+      {"assisted_teleop", OperatingState::kAssisted},
+      {"autonomous", OperatingState::kNavigating},
+      {"exploring", OperatingState::kExploring},
+      {"returning_home", OperatingState::kReturning},
+      {"battery_rth", OperatingState::kReturning},
+    };
+    const auto it = states.find(msg.data);
+    state_ = it == states.end() ? std::nullopt : std::optional<OperatingState>(it->second);
+    const bool blocked = msg.data == "fault";
+    report(blocked ? Severity::kWarn : Severity::kOk, blocked ? config_.code : std::string{});
+  }
+
+  bool optional_{true};
+  std::optional<OperatingState> state_;
+  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_;
+};
+
 template <typename T>
 InputFactory make_factory(const char * default_topic, double default_timeout_s)
 {
@@ -225,6 +285,7 @@ const std::map<std::string, InputFactory> & input_factories()
     {"diagnostics", make_factory<DiagnosticsInput>("/diagnostics", 3.0)},
     {"battery", make_factory<BatteryInput>("/battery_state", 3.0)},
     {"joy", make_factory<JoyInput>("/joy", 1.0)},
+    {"mode", make_factory<ModeInput>("/orchestrator/mode", 3.0)},
   };
   return factories;
 }

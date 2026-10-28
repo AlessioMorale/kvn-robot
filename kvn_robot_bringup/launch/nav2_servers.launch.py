@@ -4,7 +4,10 @@ Started node by node instead of through nav2_bringup's navigation_launch.py, whi
 route, collision-monitor, docking and following servers that this rover has no configuration for
 (one of them failing to configure stops the whole lifecycle bring-up).
 
-Command chain: controller_server -> cmd_vel_nav -> velocity_smoother -> cmd_vel
+Command chain: controller_server -> cmd_vel_nav -> velocity_smoother -> cmd_vel_auto
+  -> teleop_twist_joy_node (kvn_joy_teleop: operator override + orchestrator permit) -> cmd_vel
+Nothing here drives the rover without that node (teleop.launch.py on the robot,
+sim_nav_stack.launch.py in simulation).
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -34,7 +37,7 @@ def generate_launch_description():
         ('nav2_bt_navigator', 'bt_navigator', []),
         ('nav2_waypoint_follower', 'waypoint_follower', []),
         ('nav2_velocity_smoother', 'velocity_smoother',
-         [('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', 'cmd_vel')]),
+         [('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', 'cmd_vel_auto')]),
     ]
     actions = [
         Node(package=pkg, executable=exe, name=exe, output='screen',

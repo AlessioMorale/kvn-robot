@@ -208,6 +208,47 @@ TEST_F(StatusNodeTest, JoyEnableButtonSelectsDriveAndStaleJoyFaults)
   EXPECT_TRUE(wait_for("FLT:JOY", milliseconds(1500)));
 }
 
+TEST_F(StatusNodeTest, OrchestratorModeSelectsStateAndTeleopWins)
+{
+  const auto joy_topic = prefix_ + "/joy";
+  const auto mode_topic = prefix_ + "/mode";
+  options_.append_parameter_override("inputs", std::vector<std::string>{"joy", "orch"});
+  options_.append_parameter_override("joy.type", "joy");
+  options_.append_parameter_override("joy.topic", joy_topic);
+  options_.append_parameter_override("orch.type", "mode");
+  options_.append_parameter_override("orch.topic", mode_topic);
+  options_.append_parameter_override("orch.timeout_s", 0.5);
+  start();
+  auto joy_pub = helper_->create_publisher<sensor_msgs::msg::Joy>(joy_topic, 10);
+  auto mode_pub = helper_->create_publisher<std_msgs::msg::String>(
+    mode_topic, rclcpp::QoS(1).reliable().transient_local());
+  auto publish = [&](int32_t enable, const std::string & mode)
+  {
+    return [&, enable, mode]()
+    {
+      sensor_msgs::msg::Joy joy;
+      joy.buttons = {enable};
+      joy_pub->publish(joy);
+      if (!mode.empty())
+      {
+        std_msgs::msg::String msg;
+        msg.data = mode;
+        mode_pub->publish(msg);
+      }
+    };
+  };
+
+  EXPECT_TRUE(wait_for("INI", milliseconds(3000), publish(0, "initialising")));
+  EXPECT_TRUE(wait_for("AST", milliseconds(3000), publish(0, "assisted_teleop")));
+  EXPECT_TRUE(wait_for("DRV", milliseconds(3000), publish(1, "assisted_teleop")));
+  EXPECT_TRUE(wait_for("RTH", milliseconds(3000), publish(0, "battery_rth")));
+  EXPECT_TRUE(wait_for("WRN:ORCH", milliseconds(3000), publish(0, "fault")));
+  EXPECT_TRUE(wait_for("RDY", milliseconds(3000), publish(0, "teleop")));
+  // Optional input: the orchestrator going silent is not a fault, the state just drops.
+  EXPECT_TRUE(wait_for("NAV", milliseconds(3000), publish(0, "autonomous")));
+  EXPECT_TRUE(wait_for("RDY", milliseconds(3000), publish(0, "")));
+}
+
 TEST_F(StatusNodeTest, BatteryThresholds)
 {
   const auto battery_topic = prefix_ + "/battery_state";

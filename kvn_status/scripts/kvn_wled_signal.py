@@ -18,8 +18,10 @@ MODE_SETTINGS = {
     "starting_up": ((0, 0, 255), 2),
     "standby": ((255, 255, 255), 0),
     "teleop": ((0, 255, 0), 0),
+    "assisted_teleop": ((160, 0, 255), 0),
     "navigation": ((0, 64, 255), 0),
     "exploration": ((0, 255, 180), 0),
+    "returning_home": ((255, 255, 0), 1),
     "battery_low": ((255, 96, 0), 1),
     "battery_critical": ((255, 0, 0), 1),
     "warning": ((255, 160, 0), 0),
@@ -64,6 +66,17 @@ def select_mode(
     return "standby"
 
 
+def resolve_mode(signal: str | None, fallback_mode: str) -> str:
+    """The orchestrator's signal when it is fresh and known, else the node's own choice.
+
+    The signalling tree in kvn_orchestrator decides the light while it runs; it only runs with
+    Nav2, so without it the light still follows battery, faults and teleop locally.
+    """
+    if signal in MODE_SETTINGS:
+        return signal
+    return fallback_mode
+
+
 class WledSignalNode(Node):
     def __init__(self) -> None:
         super().__init__("kvn_wled_signal_node")
@@ -73,6 +86,8 @@ class WledSignalNode(Node):
         self.declare_parameter("segment_id", 0)
         self.declare_parameter("brightness", 64)
         self.declare_parameter("mode_topic", "/robot_mode")
+        self.declare_parameter("signal_topic", "/orchestrator/signal")
+        self.declare_parameter("signal_timeout_s", 3.0)
         self.declare_parameter("robot_status_topic", "/robot_status")
         self.declare_parameter("battery_topic", "/battery_state")
         self.declare_parameter("joy_topic", "/joy")
@@ -106,6 +121,7 @@ class WledSignalNode(Node):
         self._navigation_status_timeout_s = self.get_parameter(
             "navigation_status_timeout_s"
         ).value
+        self._signal_timeout_s = self.get_parameter("signal_timeout_s").value
         update_period_s = self.get_parameter("update_period_s").value
         self._enable_button = self.get_parameter("enable_button").value
         navigation_topics = self.get_parameter("navigation_status_topics").value
@@ -127,6 +143,7 @@ class WledSignalNode(Node):
             self._battery_timeout_s,
             self._robot_status_timeout_s,
             self._navigation_status_timeout_s,
+            self._signal_timeout_s,
             update_period_s,
         )
         if any(not math.isfinite(value) or value <= 0 for value in timeouts):
@@ -161,6 +178,8 @@ class WledSignalNode(Node):
         self._mode_publisher = self.create_publisher(
             String, self.get_parameter("mode_topic").value, mode_qos
         )
+        self._signal: str | None = None
+        self._signal_time: float | None = None
         self._status: str | None = None
         self._status_time: float | None = None
         self._battery_voltage: float | None = None
@@ -182,6 +201,12 @@ class WledSignalNode(Node):
                 self.get_parameter("robot_status_topic").value,
                 self._on_robot_status,
                 10,
+            ),
+            self.create_subscription(
+                String,
+                self.get_parameter("signal_topic").value,
+                self._on_signal,
+                mode_qos,
             ),
             self.create_subscription(
                 BatteryState,
@@ -223,6 +248,15 @@ class WledSignalNode(Node):
         self.get_logger().info(
             f"Controlling WLED segment {self._segment_id} via {serial_port}"
         )
+
+    def _on_signal(self, msg: String) -> None:
+        self._signal = msg.data.strip()
+        self._signal_time = time.monotonic()
+        if self._signal not in MODE_SETTINGS:
+            self.get_logger().warning(
+                f"Unknown orchestrator signal '{self._signal}', using the local mode"
+            )
+        self._evaluate()
 
     def _on_robot_status(self, msg: String) -> None:
         self._status = msg.data.strip()
@@ -289,7 +323,13 @@ class WledSignalNode(Node):
             for topic, active in self._navigation_status.items()
         )
 
-        mode = select_mode(
+        signal = (
+            self._signal
+            if self._signal_time is not None
+            and now - self._signal_time <= self._signal_timeout_s
+            else None
+        )
+        local_mode = select_mode(
             status,
             battery_voltage,
             joy_enabled,
@@ -298,6 +338,7 @@ class WledSignalNode(Node):
             self._low_battery_voltage,
             self._critical_battery_voltage,
         )
+        mode = resolve_mode(signal, local_mode)
         if mode != self._last_mode:
             self._last_mode = mode
             message = String()

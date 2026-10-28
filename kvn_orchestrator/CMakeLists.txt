@@ -20,6 +20,8 @@ find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(nav2_ros_common REQUIRED)
+find_package(nav2_behavior_tree REQUIRED)
+find_package(nav2_msgs REQUIRED)
 find_package(explore_lite_msgs REQUIRED)
 
 # The BehaviorTree.CPP CMake target name differs between distributions/builds.
@@ -60,12 +62,21 @@ function(kvn_add_bt_plugin target)
 endfunction()
 
 kvn_add_bt_plugin(kvn_bt_conditions src/plugins/conditions.cpp)
-target_link_libraries(kvn_bt_conditions PUBLIC ${nav_msgs_TARGETS} ${explore_lite_msgs_TARGETS})
+target_link_libraries(kvn_bt_conditions PUBLIC
+  tf2::tf2 ${geometry_msgs_TARGETS} ${nav_msgs_TARGETS} ${explore_lite_msgs_TARGETS})
 
 kvn_add_bt_plugin(kvn_bt_actions src/plugins/actions.cpp)
 target_link_libraries(kvn_bt_actions PUBLIC tf2::tf2 ${geometry_msgs_TARGETS})
 
 kvn_add_bt_plugin(kvn_bt_control src/plugins/control.cpp)
+
+kvn_add_bt_plugin(kvn_bt_autonomy src/plugins/autonomy.cpp)
+target_link_libraries(kvn_bt_autonomy PUBLIC
+  tf2::tf2
+  nav2_behavior_tree::nav2_behavior_tree
+  ${geometry_msgs_TARGETS}
+  ${nav2_msgs_TARGETS}
+)
 
 add_executable(kvn_orchestrator_node src/orchestrator_main.cpp)
 target_link_libraries(kvn_orchestrator_node ${PROJECT_NAME}_core)
@@ -82,8 +93,10 @@ install(FILES README.md DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
-  find_package(nav2_msgs REQUIRED)
   find_package(rclcpp_action REQUIRED)
+
+  ament_add_gtest(test_autonomy_math test/test_autonomy_math.cpp)
+  target_include_directories(test_autonomy_math PRIVATE include)
 
   ament_add_gtest(test_orchestrator test/test_orchestrator.cpp TIMEOUT 120)
   target_link_libraries(test_orchestrator
@@ -94,14 +107,17 @@ if(BUILD_TESTING)
     ${nav_msgs_TARGETS}
     ${explore_lite_msgs_TARGETS}
     ${geometry_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
   )
   target_compile_definitions(test_orchestrator PRIVATE
     KVN_TREE_FILE="${CMAKE_CURRENT_SOURCE_DIR}/trees/kvn_orchestrator.xml"
     KVN_PLUGIN_CONDITIONS="$<TARGET_FILE:kvn_bt_conditions>"
     KVN_PLUGIN_ACTIONS="$<TARGET_FILE:kvn_bt_actions>"
     KVN_PLUGIN_CONTROL="$<TARGET_FILE:kvn_bt_control>"
+    KVN_PLUGIN_AUTONOMY="$<TARGET_FILE:kvn_bt_autonomy>"
   )
-  add_dependencies(test_orchestrator kvn_bt_conditions kvn_bt_actions kvn_bt_control)
+  add_dependencies(
+    test_orchestrator kvn_bt_conditions kvn_bt_actions kvn_bt_control kvn_bt_autonomy)
 endif()
 
 ament_export_include_directories(include/${PROJECT_NAME})

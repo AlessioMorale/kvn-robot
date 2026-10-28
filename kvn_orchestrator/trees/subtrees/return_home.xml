@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <!--
-  Drive to the captured home pose while the return switch is held.
+  Drive to the captured home pose while the return switch is held and the mode switch allows
+  autonomy (assisted or autonomous).
 
   The guards are re-checked every tick. If one goes false (switch released, teleop enabled, Joy
   lost) the navigation is halted, which cancels the Nav2 goal, and OnAbort's second child
@@ -18,6 +19,9 @@
       <JoyButton name="Not a set-home chord"
                  topic="{joy_topic}" timeout_s="{joy_timeout_s}"
                  buttons="{return_blocking_buttons}" state="released"/>
+      <JoyAxis name="Autonomy allowed by the mode switch"
+               topic="{joy_topic}" timeout_s="{joy_timeout_s}"
+               axis="{mode_axis}" min="{mode_teleop_max}" max="1.0"/>
       <EntryExists name="Home pose available" key="home"/>
 
       <!-- One hold, one trip: after it ends the switch has to be released and pressed again. -->
@@ -32,6 +36,8 @@
               </Sequence>
             </ForceSuccess>
             <PublishBool topic="{explore_resume_topic}" value="false"/>
+            <SetFlag topic="{autonomy_topic}" value="true"/>
+            <SetStatus topic="{mode_topic}" value="returning_home"/>
             <SetStatus topic="{status_topic}" value="returning_home"/>
             <WaitSeconds seconds="{explore_settle_s}"/>
             <!-- Nav2's own BT node; halting it cancels the goal and waits for Nav2. -->

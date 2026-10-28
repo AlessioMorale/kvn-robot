@@ -32,6 +32,27 @@ const Condition * oldest_of(const std::vector<Condition> & conditions, Severity 
 
 }  // namespace
 
+const char * state_code(OperatingState state)
+{
+  switch (state)
+  {
+    case OperatingState::kInitialising:
+      return "INI";
+    case OperatingState::kAssisted:
+      return "AST";
+    case OperatingState::kNavigating:
+      return "NAV";
+    case OperatingState::kExploring:
+      return "EXP";
+    case OperatingState::kReturning:
+      return "RTH";
+    case OperatingState::kDriving:
+      return "DRV";
+    default:
+      return "RDY";
+  }
+}
+
 std::string format_status(
   const std::string & state, const std::string & code, std::size_t max_length)
 {
@@ -67,7 +88,7 @@ std::string reduce_status(
   {
     return format_status("WRN", warn->code, max_length);
   }
-  return format_status(state == OperatingState::kDriving ? "DRV" : "RDY", "", max_length);
+  return format_status(state_code(state), "", max_length);
 }
 
 InputMonitor::InputMonitor(std::string stale_code, Duration timeout, TimePoint start)

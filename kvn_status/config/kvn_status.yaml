@@ -1,5 +1,6 @@
 # Robot status for the ELRS handset: /robot_status = "<STATE>[:<CODE>]", <= 15 ASCII chars
-#   STATE: FLT (fault) > WRN (warning) > DRV (teleop enabled) > RDY
+#   STATE: FLT (fault) > WRN (warning) > DRV (teleop enabled) > RTH > EXP > NAV > AST > INI > RDY
+#   (RTH..INI: the orchestrator mode)
 #   Several faults (or warnings): the oldest active one is shown.
 #   An input with no update within its timeout_s (also right after startup) shows FLT:<stale_code>.
 #
@@ -12,7 +13,7 @@ kvn_status_node:
     status_topic: /robot_status
     publish_rate_hz: 2.0
     check_period_ms: 100        # staleness polling
-    inputs: [hwmon, battery, joy]
+    inputs: [hwmon, battery, joy, orchestrator]
 
     # hwmon_diagnostic_updater_node publishes one "hwmon_diagnostic_updater_node: hwmon_status"
     # entry at update_rate_hz (2 Hz, see hwmon.yaml): ERROR/STALE -> FLT:HWMON, WARN -> WRN:HWMON
@@ -40,3 +41,13 @@ kvn_status_node:
       enable_button: 0
       code: JOY
       timeout_s: 1.0
+
+    # kvn_orchestrator's mode, re-sent every second: returning home, exploring, autonomous,
+    # assisted teleop or initialising. Its "fault" (autonomy blocked) shows as WRN:ORCH.
+    # optional: a silent orchestrator (no Nav2 in this bring-up) is not a fault.
+    orchestrator:
+      type: mode
+      topic: /orchestrator/mode
+      code: ORCH
+      optional: true
+      timeout_s: 3.0

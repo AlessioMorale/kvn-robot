@@ -18,6 +18,7 @@
 #include <nav2_ros_common/qos_profiles.hpp>
 #include <nav2_ros_common/tf2_factories.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/string.hpp>
 
 namespace kvn_orchestrator
@@ -82,6 +83,35 @@ private:
   typename nav2::Subscription<MsgT>::SharedPtr subscription_;
 };
 
+/// Subscription of any message type that only records when the last message arrived. Used for
+/// liveness checks (is the EKF / lidar publishing?) without compiling in the message type.
+class TopicActivity
+{
+public:
+  TopicActivity(
+    nav2::LifecycleNode & node, const std::string & name, const std::string & type,
+    const rclcpp::QoS & qos)
+  {
+    subscription_ = node.create_generic_subscription(
+      name, type, qos,
+      [this](std::shared_ptr<const rclcpp::SerializedMessage>) {
+        received_ = true;
+        stamp_ = SteadyClock::now();
+      });
+  }
+
+  bool fresh(double timeout_s) const
+  {
+    return received_ &&
+           std::chrono::duration<double>(SteadyClock::now() - stamp_).count() <= timeout_s;
+  }
+
+private:
+  bool received_{false};
+  SteadyClock::time_point stamp_;
+  rclcpp::GenericSubscription::SharedPtr subscription_;
+};
+
 /// ROS plumbing shared by every behaviour-tree plugin. The tree host stores one instance on the
 /// root blackboard under the key "ctx".
 ///
@@ -130,8 +160,19 @@ public:
     return std::static_pointer_cast<nav2::Publisher<MsgT>>(it->second);
   }
 
+  /// Returns the shared activity monitor for \p topic, creating it on first use. Best-effort QoS,
+  /// so it matches sensor publishers as well as reliable ones.
+  std::shared_ptr<TopicActivity> activity(const std::string & topic, const std::string & type);
+
   /// Publishes a latched status string unless it equals the last one sent on that topic.
   bool publish_status(const std::string & topic, const std::string & value);
+
+  /// Publishes a latched std_msgs/Bool unless it equals the last one sent on that topic.
+  bool publish_flag(const std::string & topic, bool value);
+
+  /// Sends the last value of every latched status and flag topic again. Called periodically so
+  /// that subscribers can tell a live orchestrator (fresh messages) from a dead one.
+  void republish_latched();
 
 private:
   using Key = std::pair<std::type_index, std::string>;
@@ -141,7 +182,9 @@ private:
   nav2::TransformListener::SharedPtr tf_listener_;
   std::map<Key, std::shared_ptr<void>> subscriptions_;
   std::map<Key, std::shared_ptr<void>> publishers_;
+  std::map<std::string, std::shared_ptr<TopicActivity>> activities_;
   std::map<std::string, std::string> last_status_;
+  std::map<std::string, bool> last_flag_;
 };
 
 }  // namespace kvn_orchestrator

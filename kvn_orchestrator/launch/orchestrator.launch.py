@@ -23,6 +23,18 @@ def generate_launch_description():
         ),
         description="BehaviorTree.CPP XML file defining the orchestrator behaviour",
     )
+    signalling_tree_arg = DeclareLaunchArgument(
+        "signalling_tree",
+        default_value=PathJoinSubstitution(
+            [FindPackageShare("kvn_orchestrator"), "trees", "signalling.xml"]
+        ),
+        description="BehaviorTree.CPP XML file choosing the signalling-light pattern ('' disables)",
+    )
+    require_robot_status_arg = DeclareLaunchArgument(
+        "require_robot_status",
+        default_value="true",
+        description="Block autonomy on /robot_status faults (false where it is not published)",
+    )
     use_sim_time_arg = DeclareLaunchArgument(
         "use_sim_time", default_value="false", description="Use simulation time"
     )
@@ -39,8 +51,22 @@ def generate_launch_description():
         parameters=[
             LaunchConfiguration("orchestrator_config"),
             {"tree_file": LaunchConfiguration("orchestrator_tree")},
+            {"signalling_tree_file": LaunchConfiguration("signalling_tree")},
+            {
+                "blackboard.require_robot_status": ParameterValue(
+                    LaunchConfiguration("require_robot_status"), value_type=bool
+                )
+            },
             {"use_sim_time": ParameterValue(LaunchConfiguration("use_sim_time"), value_type=bool)},
         ],
         condition=IfCondition(LaunchConfiguration("use_orchestrator")),
     )
-    return LaunchDescription([config_arg, tree_arg, use_sim_time_arg, use_orchestrator_arg, node])
+    return LaunchDescription([
+        config_arg,
+        tree_arg,
+        signalling_tree_arg,
+        require_robot_status_arg,
+        use_sim_time_arg,
+        use_orchestrator_arg,
+        node,
+    ])

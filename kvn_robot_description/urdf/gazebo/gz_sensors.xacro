@@ -10,23 +10,24 @@
   -->
   <xacro:if value="$(arg sim_gazebo)">
 
-    <!-- Skid steering needs the wheels to slip sideways: mu2 (lateral) < mu1 (rolling) -->
-    <gazebo reference="front_left_link">
-      <mu1>1.0</mu1>
-      <mu2>0.4</mu2>
-    </gazebo>
-    <gazebo reference="front_right_link">
-      <mu1>1.0</mu1>
-      <mu2>0.4</mu2>
-    </gazebo>
-    <gazebo reference="back_left_link">
-      <mu1>1.0</mu1>
-      <mu2>0.4</mu2>
-    </gazebo>
-    <gazebo reference="back_right_link">
-      <mu1>1.0</mu1>
-      <mu2>0.4</mu2>
-    </gazebo>
+    <!-- Skid steering needs the wheels to slip sideways: lateral friction < rolling friction.
+         fdir1 (the mu1 direction) is the wheel axle, y of the wheel link, which stays horizontal
+         while the wheel spins: mu1 = lateral, mu2 = rolling. gz-sim (DART) reads fdir1 in the link
+         frame here; "0 0 1" (the cylinder collision's own axis) does not work.
+         Measured in gz-sim (spin in place at 0.5 rad/s, IMU yaw rate):
+           mu1 0.4 / mu2 1.0 / fdir1 0 1 0 -> 0.45 rad/s at every heading
+           no fdir1 (any mu), or isotropic 0.8 -> 0 rad/s: the rover cannot turn in place -->
+    <xacro:macro name="skid_wheel_friction" params="link">
+      <gazebo reference="${link}">
+        <mu1>0.4</mu1>
+        <mu2>1.0</mu2>
+        <fdir1>0 1 0</fdir1>
+      </gazebo>
+    </xacro:macro>
+    <xacro:skid_wheel_friction link="front_left_link" />
+    <xacro:skid_wheel_friction link="front_right_link" />
+    <xacro:skid_wheel_friction link="back_left_link" />
+    <xacro:skid_wheel_friction link="back_right_link" />
 
     <gazebo reference="lidar_attachment_link">
       <sensor name="lidar" type="gpu_lidar">

@@ -18,7 +18,8 @@ def generate_launch_description():
     description = FindPackageShare('kvn_robot_description')
 
     # kvn_turtlebot3_world.world: TurtleBot3 World (walls + 3x3 pillars), spawn at (-2.0, -0.5).
-    # kvn_robot.world: plain 10x10 m arena with a few boxes, spawn at (0, 0).
+    # kvn_robot.world: plain 10x10 m arena with a few boxes, spawn at (-3.5, 0); its origin is
+    # inside the 1x1 m centre box, which pushes the rover into the floor and blocks Nav2.
     world_arg = DeclareLaunchArgument(
         'world', default_value=PathJoinSubstitution([description, 'worlds', 'kvn_turtlebot3_world.world']))
     x_arg = DeclareLaunchArgument('x', default_value='-2.0', description='Spawn x [m]')
@@ -63,12 +64,15 @@ def generate_launch_description():
         parameters=[{'config_file': PathJoinSubstitution([bringup, 'config', 'gz_bridge.yaml']),
                      'use_sim_time': True}])
 
-    # The controller_manager lives inside gz_ros2_control; only the spawners run here
+    # The controller_manager lives inside gz_ros2_control; only the spawners run here.
+    # --param-file: as in robot_base.launch.py, the controller node does not inherit the
+    # controller_manager's parameters; without it skid_steer_controller runs on its compiled-in
+    # defaults (wheel_radius 0.048, track_width 0.205) while odometry_node uses controllers.yaml.
     def spawner(name):
         return Node(
             package='controller_manager', executable='spawner',
             arguments=[name, '--controller-manager', '/controller_manager',
-                       '--controller-manager-timeout', '30'],
+                       '--controller-manager-timeout', '30', '--param-file', controllers_file],
             parameters=[{'use_sim_time': True}])
 
     # fuse publishes odom -> base_link in the nav stack; set publish_tf:=true to use wheel odometry

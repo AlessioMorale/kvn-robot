@@ -18,7 +18,7 @@ ros2 launch kvn_robot_bringup robot_sensors.launch.py
 ros2 launch kvn_odom_calibration odom_calibration.launch.py
 
 # Simulation
-ros2 launch kvn_robot_bringup sim_headless.launch.py world:=$(ros2 pkg prefix kvn_robot_description)/share/kvn_robot_description/worlds/kvn_robot.world x:=0.0 y:=0.0
+ros2 launch kvn_robot_bringup sim_headless.launch.py world:=$(ros2 pkg prefix kvn_robot_description)/share/kvn_robot_description/worlds/kvn_robot.world x:=-3.5 y:=0.0
 ros2 launch kvn_odom_calibration odom_calibration.launch.py use_sim_time:=true
 ```
 

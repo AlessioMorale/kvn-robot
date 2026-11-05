@@ -3,8 +3,8 @@
 Nav2 drives through the same teleop_twist_joy_node (kvn_joy_teleop) as on the robot. There is no
 RC receiver here, so it forwards Nav2's command without requiring Joy or the orchestrator's
 permit (set require_autonomy_permit:=true and publish /joy, axes[4] = 1.0 for autonomous, to
-exercise the orchestrator's modes). /robot_status is not published, so the orchestrator skips
-its robot-fault checks.
+exercise the orchestrator's modes; the orchestrator only starts then, see use_orchestrator).
+/robot_status is not published, so the orchestrator skips its robot-fault checks.
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription
@@ -32,6 +32,11 @@ def generate_launch_description():
     require_permit_arg = DeclareLaunchArgument(
         'require_autonomy_permit', default_value='false',
         description='Forward Nav2 commands only while the orchestrator permits it (needs /joy)')
+    # Without /joy the orchestrator never leaves `initialising` (waiting_for_joy) and, while its
+    # gate is closed, pauses explore_lite. So it only runs when the permit is exercised.
+    use_orchestrator_arg = DeclareLaunchArgument(
+        'use_orchestrator', default_value=LaunchConfiguration('require_autonomy_permit'),
+        description='Start the orchestrator (default: same as require_autonomy_permit; needs /joy)')
 
     sim = include(
         'sim_headless.launch.py', gui=LaunchConfiguration('gui'), publish_odom_tf='false',
@@ -39,7 +44,7 @@ def generate_launch_description():
     stack = include(
         'nav_stack.launch.py',
         use_sim_time='true', use_nav2=LaunchConfiguration('use_nav2'),
-        require_robot_status='false')
+        use_orchestrator=LaunchConfiguration('use_orchestrator'), require_robot_status='false')
     require_permit = ParameterValue(LaunchConfiguration('require_autonomy_permit'), value_type=bool)
     teleop = Node(
         package='kvn_joy_teleop', executable='teleop_override_node', name='teleop_twist_joy_node',
@@ -49,4 +54,5 @@ def generate_launch_description():
              'require_autonomy_permit': require_permit}])
 
     return LaunchDescription([
-        gui_arg, world_arg, x_arg, y_arg, use_nav2_arg, require_permit_arg, sim, stack, teleop])
+        gui_arg, world_arg, x_arg, y_arg, use_nav2_arg, require_permit_arg, use_orchestrator_arg,
+        sim, stack, teleop])

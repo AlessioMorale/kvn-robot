@@ -1,0 +1,26 @@
+[Unit]
+Description=KVN calibration supervisor (kvn_calibration_supervisor: odometry + sensor extrinsics, driven from /calibration/command)
+# Needs the drive base and the sensors; navigation is stopped (Conflicts in kvn-nav/kvn-explore)
+Requires=kvn-control.service kvn-sensors.service
+After=kvn-control.service kvn-sensors.service kvn-nav.service kvn-explore.service
+# The one-shot odometry run would command /cmd_vel too
+Conflicts=kvn-calibration.service kvn-nav.service kvn-explore.service kvn-drive.target kvn-nav.target kvn-explore.target
+
+[Service]
+# Waits for commands: nothing moves until START then NEXT on /calibration/command
+Type=simple
+User=alessio
+EnvironmentFile=/etc/kvn/kvn-ros.env
+# Extra node parameters, e.g. `sudo systemctl set-environment KVN_SUPERVISOR_ARGS="-p steps:=[imu,lidar,camera]"`
+Environment=KVN_SUPERVISOR_ARGS=
+CPUWeight=200
+# Both parameter files: the odometry step runs kvn_odom_calibration's node in this process
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 run kvn_calibration_supervisor calibration_supervisor --ros-args --params-file "$(ros2 pkg prefix kvn_odom_calibration)/share/kvn_odom_calibration/config/odom_calibration.yaml" --params-file "$(ros2 pkg prefix kvn_calibration_supervisor)/share/kvn_calibration_supervisor/config/calibration_supervisor.yaml" ${KVN_SUPERVISOR_ARGS}'
+# SIGTERM stops the rover and restores the drive nodes' parameters before exiting
+KillSignal=SIGTERM
+TimeoutStopSec=20
+Restart=on-failure
+RestartSec=3
+# Results: /etc/kvn/calibration_<hostname>.yaml on SAVE; progress in journalctl -u kvn-calibration-supervisor
+
+# No [Install]: started by kvn-calibration.target only, never at boot.

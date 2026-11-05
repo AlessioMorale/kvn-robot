@@ -3,7 +3,7 @@ Description=KVN autonomous frontier exploration (explore_lite)
 # Sends Nav2 goals on slam_toolbox's map; stopped together with kvn-nav.service
 Requires=kvn-nav.service
 After=kvn-nav.service
-Conflicts=kvn-calibration.service kvn-drive.target kvn-nav.target kvn-calibration.target
+Conflicts=kvn-calibration.service kvn-calibration-supervisor.service kvn-drive.target kvn-nav.target kvn-calibration.target
 
 [Service]
 Type=simple

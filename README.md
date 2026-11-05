@@ -145,6 +145,7 @@ Run `robot` alone, or its layers separately; do not start `robot` together with 
 | `kvn_joy_teleop`, `kvn_status`, `kvn_orchestrator` | Teleoperation with operator override, health reporting, and behaviour-tree command modes, safety gating, assisted teleop, return home and signalling. |
 | `kvn_display` | Robot status on a small I2C or SPI display (any u8g2 driver). |
 | `kvn_video_streamer` | On-demand video to Foxglove, with optional WebRTC. |
+| `kvn_odom_calibration`, `kvn_calibration_supervisor` | Wheel odometry calibration, and a topic-driven calibration session (odometry, IMU, lidar and camera extrinsics) that can be stepped through from Foxglove. |
 
 ## Status
 

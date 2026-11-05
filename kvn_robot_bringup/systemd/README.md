@@ -9,7 +9,8 @@ Each layer of the stack is its own unit, so a crash or restart in one does not t
 | `kvn-sensors.service` | `robot_sensors.launch.py`: lidar, OAK camera | `Wants=kvn-control` |
 | `kvn-nav.service` | `nav_stack.launch.py`: fuse, slam_toolbox, Nav2, behaviour-tree orchestrator | Localisation and navigation. `Requires=kvn-control kvn-sensors` |
 | `kvn-explore.service` | `explore.launch.py`: explore_lite | `Requires=kvn-nav`. The rover drives off by itself |
-| `kvn-calibration.service` | `kvn_odom_calibration` | One-shot, never at boot. Stops nav and explore while it runs |
+| `kvn-calibration-supervisor.service` | `kvn_calibration_supervisor`: guided odometry, IMU, lidar and camera calibration, driven from `/calibration/command` | Started by `kvn-calibration.target`, never at boot. Stops nav and explore while it runs |
+| `kvn-calibration.service` | `kvn_odom_calibration` | One-shot odometry run, started by hand only. Never at boot. Stops nav, explore and the supervisor while it runs |
 | `kvn-foxglove.service` | `foxglove_bridge.launch.py`: read-only bridge, TCP 8765 | `Nice=10`, `CPUQuota=50%`, `After=`/`Wants=zerotier-one.service` |
 | `kvn-foxglove-control.service` | `foxglove_control.launch.py`: the same bridge, but clients can also publish teleop `/cmd_vel`, Nav2 goals `/goal_pose` and `/explore/resume` | Opt-in exception to rule R1. `Conflicts=kvn-foxglove` (same port). See "Foxglove access" |
 | `kvn-video.service` | `video_streamer.launch.py`: H.264 video | `Nice=10`, `CPUQuota=100%`, `Wants=kvn-webrtc-signalling` |
@@ -30,7 +31,7 @@ The services are grouped into four operating modes, one `.target` each. Only one
 | `kvn-drive.target`: RC driving only | ● | | | | |
 | `kvn-nav.target`: localisation and navigation | ● | ● | ● | | |
 | `kvn-explore.target`: autonomous exploration | ● | ● | ● | ● | |
-| `kvn-calibration.target`: one odometry calibration run | ● | ● | | | ● (exits when done) |
+| `kvn-calibration.target`: calibration supervisor | ● | ● | | | ● (waits for commands) |
 
 The WiFi viewers (the Foxglove bridge and the video, see below) are not part of any mode. They are enabled on their own and keep running in every mode. Switching mode never restarts `kvn-control`, so RC driving stays up throughout. The targets list what each mode wants. Each service carries `Conflicts=` against the modes it does not belong to: `kvn-sensors` against drive; `kvn-nav` against drive and calibration; `kvn-explore` against everything but explore. `systemctl isolate` is not used: it would also stop unrelated system services such as ssh and networking.
 
@@ -43,6 +44,7 @@ Run one of the two bridges; they share TCP 8765, and starting one stops the othe
   - **Teleop panel** on `/cmd_vel`, as `geometry_msgs/Twist`. The controller stops the rover 1 s after the last message, for example if the WiFi drops.
   - **3D panel, "Publish pose"** on `/goal_pose`, in frame `map`. Nav2 drives there; needs `kvn-nav.target` or `kvn-explore.target`.
   - **Publish panel** on `/explore/resume`, as `std_msgs/Bool`: `false` pauses exploration, `true` resumes it.
+  - **Publish panel** on `/calibration/command`, as `std_msgs/String` (`START`, `NEXT`, `SKIP`, `ABORT`, `SAVE`): steps through the calibration in `kvn-calibration.target`. Its status is on `/calibration/status`; see `kvn_calibration_supervisor/README.md`.
 
   A running Nav2 goal cannot be cancelled from Foxglove (no actions or services are exposed). Send a new goal, or `sudo systemctl start kvn-drive.target`. Teleop and Nav2 both publish `/cmd_vel`, so while a goal runs, Nav2's commands win; there is no multiplexer.
 
@@ -102,19 +104,27 @@ sudo systemctl start kvn-explore.target       # explore (navigation comes up if 
 sudo systemctl start kvn-nav.target           # stop exploring, keep navigation and the map
 sudo systemctl start kvn-drive.target         # RC only: lidar, SLAM, Nav2 and exploration off
 
-# Odometry calibration: stops nav/explore, drives the rover for a few minutes, then exits.
-# Give it ~1.35 m of free floor in front and behind; keep the RC sticks neutral.
+# Calibration mode: stops nav/explore and starts the calibration supervisor, which waits for
+# START / NEXT / SKIP / ABORT / SAVE on /calibration/command (Foxglove publish panel, or below).
 sudo systemctl start kvn-calibration.target
+ros2 topic pub --once /calibration/command std_msgs/msg/String "{data: START}"
+ros2 topic echo --field data /calibration/status    # instruction for you, progress, results
+journalctl -fu kvn-calibration-supervisor
+cat /etc/kvn/calibration_$(hostname).yaml           # after SAVE
+sudo systemctl start kvn-nav.target           # back to navigation (not automatic)
+
+# One-shot odometry calibration only (no supervisor): drives the rover for a few minutes, exits.
+# Give it ~1.35 m of free floor in front and behind; keep the RC sticks neutral.
+sudo systemctl start kvn-calibration
 journalctl -fu kvn-calibration                # progress, then the fitted wheel_radius / chi
 ls ~/.ros/odom_calibration/                   # YAML to copy into config/controllers.yaml
-sudo systemctl start kvn-nav.target           # back to navigation (not automatic)
 ```
 
-Starting `kvn-calibration.target` returns immediately; the run continues in the background. `sudo systemctl start kvn-calibration` (the service) instead blocks until the run is done. To try the fitted values straight away (runtime only, lost when `kvn-control` restarts):
+`sudo systemctl start kvn-calibration` (the one-shot service) blocks until the run is done. To try the fitted values straight away (runtime only, lost when `kvn-control` restarts):
 
 ```bash
 sudo systemctl set-environment KVN_CALIBRATION_ARGS="-p apply_results:=true"
-sudo systemctl start kvn-calibration.target
+sudo systemctl start kvn-calibration
 sudo systemctl unset-environment KVN_CALIBRATION_ARGS   # after the run
 ```
 

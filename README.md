@@ -38,6 +38,7 @@ This runs the gz server with no GUI (`--headless-rendering`) and uses the Turtle
 | `use_nav2` | `true` | Set `false` to run only the simulation, fuse and slam_toolbox. |
 | `world` | TurtleBot3 World | `kvn_turtlebot3_world.world` is a walled area with a 3×3 grid of pillars. For the plain 10×10 m arena with boxes, pass `world:=$(ros2 pkg prefix kvn_robot_description)/share/kvn_robot_description/worlds/kvn_robot.world x:=-3.5 y:=0.0`. |
 | `x`, `y` | `-2.0`, `-0.5` | Spawn position in the world. |
+| `sim_profile` | `ideal` | `ideal`: noise-free sensors exactly on their URDF frames. `real`: sensors mounted off their URDF frames (TF stays nominal, so the rover is miscalibrated), tyres 3 % larger than `controllers.yaml` assumes, and sensor noise and bias. The values are in `kvn_robot_description/config/sim_profiles.yaml`. |
 
 To run only the simulated rover, without fuse, SLAM or Nav2, use `ros2 launch kvn_robot_bringup sim_headless.launch.py publish_odom_tf:=true`.
 

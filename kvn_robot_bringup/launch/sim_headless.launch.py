@@ -26,11 +26,17 @@ def generate_launch_description():
     y_arg = DeclareLaunchArgument('y', default_value='-0.5', description='Spawn y [m]')
     gui_arg = DeclareLaunchArgument(
         'gui', default_value='false', description='Also start the gz GUI client (needs a display)')
+    # kvn_robot_description/config/sim_profiles.yaml. real: the simulated sensors sit off their
+    # URDF frames (TF stays nominal, i.e. miscalibrated), tyres 3 % larger, sensor noise and bias.
+    sim_profile_arg = DeclareLaunchArgument(
+        'sim_profile', default_value='ideal', choices=['ideal', 'real'],
+        description='ideal: perfect sensors and calibration; real: calibration errors and noise')
 
     controllers_file = PathJoinSubstitution([bringup, 'config', 'controllers.yaml'])
     urdf_file = PathJoinSubstitution([description, 'urdf', 'kvn_rover.urdf.xacro'])
     robot_description = ParameterValue(
-        Command(['xacro ', urdf_file, ' sim_gazebo:=true simulation_controllers:=', controllers_file]),
+        Command(['xacro ', urdf_file, ' sim_gazebo:=true simulation_controllers:=', controllers_file,
+                 ' sim_profile:=', LaunchConfiguration('sim_profile')]),
         value_type=str)
 
     # Meshes are referenced as package://kvn_robot_description/...
@@ -84,7 +90,7 @@ def generate_launch_description():
     publish_odom_tf_arg = DeclareLaunchArgument('publish_odom_tf', default_value='false')
 
     return LaunchDescription([
-        world_arg, x_arg, y_arg, gui_arg, publish_odom_tf_arg,
+        world_arg, x_arg, y_arg, gui_arg, sim_profile_arg, publish_odom_tf_arg,
         gz_resource_path, gz_tb3_models, gz_server, gz_gui,
         robot_state_publisher, spawn_robot, bridge,
         spawner('joint_state_broadcaster'), spawner('skid_steer_controller'),

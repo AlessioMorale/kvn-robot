@@ -1,0 +1,41 @@
+# Simulation profiles (sim_headless / sim_nav_stack `sim_profile:=...`), read by gz_sensors.xacro.
+#
+# mount_error: how the simulated sensor really sits relative to its URDF frame, as roll pitch yaw
+# [rad]. TF (robot_state_publisher) still publishes the nominal URDF frames, so a non-zero value
+# is a calibration error that kvn_calibration_supervisor should measure:
+#   imu   -> base_link_to_imu.rotation_rpy roll/pitch     = URDF + mount_error roll/pitch
+#   lidar -> base_link_to_lidar.rotation_rpy yaw          = URDF + mount_error yaw
+#   oakd  -> base_link_to_oakd.rotation_rpy pitch/yaw     = URDF + mount_error pitch/yaw
+# wheel_radius_scale: true (simulated) wheel radius / the radius in robot_config.yaml and
+# controllers.yaml; what the odometry calibration should find as wheel_radius.
+# Noise: gaussian standard deviations; *_bias is a constant offset (gz flips its sign at random).
+
+ideal:
+  # Perfect sensors and calibration: the sensors sit exactly on their URDF frames, no noise
+  mount_error:
+    imu: [0.0, 0.0, 0.0]
+    lidar: [0.0, 0.0, 0.0]
+    oakd: [0.0, 0.0, 0.0]
+  wheel_radius_scale: 1.0
+  noise:
+    lidar_range: 0.0          # [m]
+    gyro: 0.0                 # [rad/s]
+    gyro_bias: 0.0            # [rad/s]
+    accel: 0.0                # [m/s^2]
+    accel_bias: 0.0           # [m/s^2]
+    depth: 0.0                # [m] depth image (and so the point cloud)
+
+real:
+  # Imperfect assembly and noisy sensors, roughly what the real rover shows
+  mount_error:
+    imu: [0.026, -0.017, 0.0]     # 1.5 deg roll, -1.0 deg pitch (PCB on standoffs)
+    lidar: [0.0, 0.0, 0.035]      # 2.0 deg yaw
+    oakd: [0.0, 0.052, -0.026]    # 3.0 deg pitch (nose down), -1.5 deg yaw
+  wheel_radius_scale: 1.03        # tyres 3 % larger than the nominal 0.03625 m
+  noise:
+    lidar_range: 0.01         # RPLIDAR C1: ~1 cm
+    gyro: 0.003
+    gyro_bias: 0.004          # ~0.23 deg/s, the supervisor's half turn removes it
+    accel: 0.05
+    accel_bias: 0.02          # ~0.1 deg of apparent tilt, indistinguishable from the mounting
+    depth: 0.01               # OAK-D Lite stereo at ~1 m

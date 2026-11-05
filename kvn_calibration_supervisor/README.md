@@ -29,6 +29,16 @@ ros2 launch kvn_robot_bringup sim_headless.launch.py world:=$(ros2 pkg prefix kv
 ros2 launch kvn_calibration_supervisor calibration_supervisor.launch.py use_sim_time:=true output_path:=/tmp/calibration_sim.yaml
 ```
 
+In simulation, `sim_profile:=real` mounts the simulated sensors off their URDF frames, makes the tyres 3 % larger than nominal, and adds sensor noise. It is a calibration problem with a known answer (`kvn_robot_description/config/sim_profiles.yaml`). Spawned at `x:=3.9 y:=0.0` in `kvn_robot.world`, the rover faces the east wall from 1.0 m away, ready for the lidar and camera steps. The results compared with the injected errors:
+
+| | `ideal` | `real`, injected | `real`, measured |
+|---|---|---|---|
+| Lidar yaw vs URDF | 0.00° | +2.0° | +2.06° |
+| Camera pitch / yaw | −0.07° / 0.00° | +3.0° / −1.5° | +2.7–2.8° / −1.5° |
+| IMU roll / pitch | 0.00° / 0.00° | +1.5° / −1.0° | +1.61° / −1.10° |
+
+The IMU values include the profile's accelerometer bias (about 0.12°), which no static method can separate from the mounting. About 0.25° of the camera pitch is lost to depth noise acting along the camera rays, an inherent limit of fitting a plane from one viewpoint. The IMU half turn leaves the rover facing away from the wall, so in simulation run the lidar and camera steps first (`steps:=[lidar,camera]`) and the IMU in a second session. The file merges both.
+
 The node does nothing until it gets `START`. It then waits for `NEXT` before each step, so that you can place the rover first.
 
 ### From Foxglove or Lichtblick

@@ -29,6 +29,9 @@ def generate_launch_description():
     x_arg = DeclareLaunchArgument('x', default_value='-2.0')
     y_arg = DeclareLaunchArgument('y', default_value='-0.5')
     use_nav2_arg = DeclareLaunchArgument('use_nav2', default_value='true')
+    sim_profile_arg = DeclareLaunchArgument(
+        'sim_profile', default_value='ideal', choices=['ideal', 'real'],
+        description='ideal: perfect sensors and calibration; real: calibration errors and noise')
     require_permit_arg = DeclareLaunchArgument(
         'require_autonomy_permit', default_value='false',
         description='Forward Nav2 commands only while the orchestrator permits it (needs /joy)')
@@ -40,7 +43,8 @@ def generate_launch_description():
 
     sim = include(
         'sim_headless.launch.py', gui=LaunchConfiguration('gui'), publish_odom_tf='false',
-        world=LaunchConfiguration('world'), x=LaunchConfiguration('x'), y=LaunchConfiguration('y'))
+        world=LaunchConfiguration('world'), x=LaunchConfiguration('x'), y=LaunchConfiguration('y'),
+        sim_profile=LaunchConfiguration('sim_profile'))
     stack = include(
         'nav_stack.launch.py',
         use_sim_time='true', use_nav2=LaunchConfiguration('use_nav2'),
@@ -54,5 +58,5 @@ def generate_launch_description():
              'require_autonomy_permit': require_permit}])
 
     return LaunchDescription([
-        gui_arg, world_arg, x_arg, y_arg, use_nav2_arg, require_permit_arg, use_orchestrator_arg,
+        gui_arg, world_arg, x_arg, y_arg, use_nav2_arg, sim_profile_arg, require_permit_arg, use_orchestrator_arg,
         sim, stack, teleop])

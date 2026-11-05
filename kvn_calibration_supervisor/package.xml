@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>kvn_calibration_supervisor</name>
+  <version>0.0.0</version>
+  <description>Topic-driven calibration supervisor for the KVN rover: wheel odometry, IMU roll/pitch (floor compensated), lidar yaw and OAK-D pitch/yaw, saved as ROS 2 parameters</description>
+  <maintainer email="alessiomorale@gmail.com">Alessio Morale</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>sensor_msgs_py</exec_depend>
+  <exec_depend>message_filters</exec_depend>
+  <exec_depend>tf2_ros_py</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>kvn_odom_calibration</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

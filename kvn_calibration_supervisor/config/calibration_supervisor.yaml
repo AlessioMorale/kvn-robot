@@ -1,0 +1,62 @@
+calibration_supervisor:
+  ros__parameters:
+    # Steps offered after START (always run in the order odometry, imu, lidar, camera);
+    # drop one to leave it out entirely
+    steps: [odometry, imu, lidar, camera]
+    # Empty: /etc/kvn/calibration_<hostname>.yaml (install.sh creates it for the service user)
+    output_path: ""
+
+    base_frame: base_link
+    imu_frame: imu_link
+    camera_frame: camera_attachment_link   # parent of the OAK-D frames in the URDF
+    lidar_frame: lidar_attachment_link
+    imu_topic: /imu
+    scan_topic: /scan
+    cloud_topic: /oak/rgbd/points
+    odom_topic: /odom
+    fsm_rate: 20.0          # [Hz]
+    sensor_timeout: 5.0     # [s] a sampling step fails without data for this long
+
+    # IMU: samples at each heading; the second sampling waits imu_settle_time for the suspension
+    imu_samples: 500
+    imu_settle_time: 1.0    # [s]
+    max_still_rate: 0.05    # [rad/s] mean |yaw rate| above this: the rover moved, step fails
+    # Half turn between the two headings: angle = w * gyro + (1 - w) * /odom yaw
+    turn_direction: 1       # 1 counter-clockwise, -1 clockwise
+    turn_gyro_weight: 0.8
+    turn_max_speed: 0.6     # [rad/s]
+    turn_min_speed: 0.15    # [rad/s]
+    turn_gain: 1.5          # [1/s] speed = gain * remaining angle, clamped to the two above
+    turn_tolerance: 0.01    # [rad]
+    turn_timeout: 30.0      # [s]
+
+    # LiDAR: wall line in front of the rover
+    lidar_scans: 10
+    lidar_window: 0.5       # [rad] half width around base_link +x
+    lidar_max_range: 3.0    # [m]
+    wall_distance: 1.0      # [m] expected; only a warning when off by more than 0.3 m
+    ransac_threshold_2d: 0.015  # [m]
+    max_wall_angle: 0.5     # [rad] wall normal vs the expected one (rejects floor / side walls)
+    ransac_iterations: 2000  # upper bound; stops early once the wall is found with 99.9 % confidence
+
+    # Camera: wall plane in the depth cloud, paired with a scan (message_filters)
+    camera_clouds: 3
+    sync_slop: 0.1          # [s]
+    camera_min_range: 0.3   # [m]
+    camera_max_range: 2.5   # [m]
+    camera_crop_horizontal: 0.35  # [rad] half angles of the central region kept
+    camera_crop_vertical: 0.25
+    camera_max_points: 20000
+    ransac_threshold_3d: 0.02     # [m]
+
+    # Odometry step: kvn_odom_calibration runs in this process as the node below and reads its
+    # parameters from that package's odom_calibration.yaml plus the section further down
+    odom_calibration_node: odom_calibration
+    controller_node: /skid_steer_controller
+    odometry_node: /odometry_node
+
+odom_calibration:
+  ros__parameters:
+    # The fitted wheel_radius / chi are set on the running drive nodes for the rest of the
+    # session (the IMU half turn uses /odom), and saved to the calibration file on SAVE
+    apply_results: true

@@ -49,9 +49,15 @@ def _yaw_from_quaternion(q):
 
 
 class OdomCalibration(Node):
+    """The calibration routine. Standalone (main) or embedded by kvn_calibration_supervisor.
 
-    def __init__(self):
-        super().__init__('odom_calibration')
+    run() blocks until done and returns the fitted values; request_abort() from another thread
+    stops the rover and makes run() raise CalibrationAborted. on_segment, when set, is called with
+    (n, total, segment) after each run.
+    """
+
+    def __init__(self, node_name='odom_calibration', **kwargs):
+        super().__init__(node_name, **kwargs)
         declare = self.declare_parameter
         self.base_frame = declare('base_frame', 'base_link').value
         self.left_joints = declare('left_joints', ['front_left_joint', 'back_left_joint']).value
@@ -115,6 +121,8 @@ class OdomCalibration(Node):
         self.tf_listener = tf2_ros.TransformListener(
             self.tf_buffer, self, static_only=self.reference != 'tf')
         self._restore = []  # (client, [Parameter]) to set back on exit
+        self._abort = threading.Event()
+        self.on_segment = None
 
     # ---- callbacks ----------------------------------------------------------------------------
 
@@ -156,15 +164,25 @@ class OdomCalibration(Node):
 
     # ---- helpers ------------------------------------------------------------------------------
 
+    def request_abort(self):
+        """Thread-safe: the running calibration stops at its next check (within ~50 ms)."""
+        self._abort.set()
+
+    def _check_abort(self):
+        if self._abort.is_set():
+            raise CalibrationAborted('aborted on request')
+
     def _sleep(self, seconds):
         """Sleep on the node clock, so that it also works with use_sim_time."""
         end = self.get_clock().now() + Duration(seconds=seconds)
         while self.get_clock().now() < end:
+            self._check_abort()
             time.sleep(0.01)
 
     def _wait_for(self, condition, timeout, what):
         deadline = time.monotonic() + timeout
         while not condition():
+            self._check_abort()
             if time.monotonic() > deadline:
                 raise CalibrationAborted(f'timed out waiting for {what}')
             time.sleep(0.05)
@@ -274,6 +292,8 @@ class OdomCalibration(Node):
             self.get_logger().info('Slip compensation disabled for the calibration')
 
     def restore_parameters(self):
+        # After request_abort() too: the abort must not cut the restore calls short
+        self._abort.clear()
         for client, params in self._restore:
             try:
                 self._set_params(client, params, 'restore parameters')
@@ -374,6 +394,9 @@ class OdomCalibration(Node):
         timeout = 3.0 * target / speed + 5.0
         started = self.get_clock().now()
         while progress() < target:
+            if self._abort.is_set():
+                self.stop_robot()
+                self._check_abort()
             if (self.get_clock().now() - started).nanoseconds * 1e-9 > timeout:
                 self.stop_robot()
                 raise CalibrationAborted(
@@ -422,6 +445,7 @@ class OdomCalibration(Node):
             self.get_logger().warning(f'{line} -- discarded, {s.note}')
 
     def run(self):
+        """Drives the whole calibration; returns {'wheel_radius', 'track_width', 'chi'}."""
         self.get_logger().info('Waiting for /joint_states' +
                                (', /scan' if self.reference == 'scan' or self.check_clearance else '') +
                                (' and /imu' if self.use_imu else ''))
@@ -449,8 +473,10 @@ class OdomCalibration(Node):
             segment = self._run_segment(kind, direction)
             segments.append(segment)
             self._log_segment(n, len(plan), segment)
+            if self.on_segment is not None:
+                self.on_segment(n, len(plan), segment)
         self.stop_robot()
-        self._report(segments)
+        return self._report(segments)
 
     def _report(self, segments):
         log = self.get_logger()
@@ -510,6 +536,7 @@ class OdomCalibration(Node):
                 if client is not None:
                     self._set_params(client, params, f'apply to {name}')
                     log.info(f'Applied {values} to {name} (runtime only, not saved)')
+        return values
 
 
 def main(args=None):

@@ -47,3 +47,7 @@ The log also reports two diagnostics:
 - It gives no per-measurement quality to reject bad runs on.
 
 If you do use it, set both minimum travel thresholds to 0 for the calibration so that the scans at each stop get processed.
+
+## Inside the calibration supervisor
+
+[kvn_calibration_supervisor](../kvn_calibration_supervisor/README.md) runs this calibration as the first step of its guided session, in its own process, under the node name `odom_calibration`, so it reads the same `config/odom_calibration.yaml`. There it starts on a `NEXT` command rather than at launch, `ABORT` or `SKIP` stops it (`OdomCalibration.request_abort()`), and the fitted values go into `/etc/kvn/calibration_<hostname>.yaml` on `SAVE`.

@@ -10,6 +10,15 @@
   <xacro:arg name="mock_sensor_commands" default="false" />
   <xacro:arg name="sim_gazebo" default="false" />
   <xacro:arg name="simulation_controllers" default="" />
+  <!-- Simulation profile (config/sim_profiles.yaml): ideal = perfect sensors and calibration,
+       real = sensors mounted off their URDF frames, larger wheels, noise. Only with sim_gazebo. -->
+  <xacro:arg name="sim_profile" default="ideal" />
+
+  <!-- Before the includes: gz_sensors.xacro uses `sim` as it is read -->
+  <xacro:property name="sim_profiles"
+    value="${xacro.load_yaml('$(find kvn_robot_description)/config/sim_profiles.yaml')}" />
+  <xacro:property name="sim"
+    value="${sim_profiles['$(arg sim_profile)'] if '$(arg sim_gazebo)' == 'true' else sim_profiles['ideal']}" />
 
   <xacro:include filename="$(find kvn_robot_description)/urdf/kvn_rover/kvn_rover_macro.xacro" />
   <xacro:include

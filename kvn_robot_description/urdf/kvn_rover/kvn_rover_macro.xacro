@@ -25,11 +25,13 @@
       <xacro:cylinder_inertial radius="${wheel_radius}" length="${wheel_width}" mass="0.15">
         <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
       </xacro:cylinder_inertial>
-      <!-- The wheels are the only ground contact in simulation (base box sits above the floor) -->
+      <!-- The wheels are the only ground contact in simulation (base box sits above the floor).
+           sim['wheel_radius_scale'] (sim_profiles.yaml) makes the simulated tyres differ from the
+           nominal radius that odometry assumes; 1.0 outside simulation. -->
       <collision>
         <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
         <geometry>
-          <cylinder radius="${wheel_radius}" length="${wheel_width}" />
+          <cylinder radius="${wheel_radius * sim['wheel_radius_scale']}" length="${wheel_width}" />
         </geometry>
       </collision>
       <visual>

@@ -3,7 +3,7 @@ Description=KVN odometry calibration run (kvn_odom_calibration: drives the rover
 # Needs the drive base and the lidar; navigation is stopped (Conflicts in kvn-nav/kvn-explore)
 Requires=kvn-control.service kvn-sensors.service
 After=kvn-control.service kvn-sensors.service kvn-nav.service kvn-explore.service
-Conflicts=kvn-nav.service kvn-explore.service kvn-drive.target kvn-nav.target kvn-explore.target
+Conflicts=kvn-nav.service kvn-explore.service kvn-drive.target kvn-nav.target kvn-explore.target kvn-calibration-supervisor.service
 
 [Service]
 # One run: `systemctl start` returns when the calibration is done (a few minutes).

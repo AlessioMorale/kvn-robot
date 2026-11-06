@@ -117,6 +117,7 @@ if [[ $dry_run -eq 1 ]]; then
     done
     echo
     echo "would install to $ENV_DIR/kvn-ros.env and $UNIT_DIR/: ${units[*]}"
+    [[ -e "$ENV_DIR/calibration_$(hostname).yaml" ]] || echo "would create $ENV_DIR/calibration_$(hostname).yaml owned by $user"
     [[ -z "$mode" ]] || echo "would enable and start kvn-$mode.target, disable the other modes"
     [[ -z "$foxglove" ]] || echo "would set the Foxglove bridge to: $foxglove"
     exit 0
@@ -140,6 +141,12 @@ done
 
 install -d "$ENV_DIR"
 install -m 0644 "$stage/kvn-ros.env" "$ENV_DIR/kvn-ros.env"
+# Written by kvn_calibration_supervisor on SAVE; /etc/kvn stays root's, only this file is the user's
+calibration="$ENV_DIR/calibration_$(hostname).yaml"
+if [[ ! -e "$calibration" ]]; then
+    install -m 0644 -o "$user" /dev/null "$calibration"
+    echo "created $calibration (owned by $user, for the calibration supervisor)"
+fi
 for name in "${units[@]}"; do
     install -m 0644 "$stage/$name" "$UNIT_DIR/$name"
 done

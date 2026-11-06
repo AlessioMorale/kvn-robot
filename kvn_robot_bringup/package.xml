@@ -14,6 +14,18 @@
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>kvn_joy_teleop</exec_depend>
 
+  <!-- Drive base (robot_base and sim_headless) -->
+  <exec_depend>kvn_robot_description</exec_depend>
+  <exec_depend>kvn_odometry</exec_depend>
+  <exec_depend>skid_steer_controller</exec_depend>
+  <exec_depend>ddsm210_hardware_interface</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>nav2_common</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+
   <exec_depend>elrs_joy_crsf_node</exec_depend>
   <exec_depend>hwmon_diagnostic_updater</exec_depend>
   <exec_depend>kvn_status</exec_depend>

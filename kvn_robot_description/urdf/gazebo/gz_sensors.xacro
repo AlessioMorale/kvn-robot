@@ -7,30 +7,45 @@
 
     Frame note: the RGB-D point cloud is published in oak_rgb_camera_frame (x forward), the
     non-optical camera frame, because gz clouds are not in the z-forward optical convention.
+
+    Profile (sim_profile arg, config/sim_profiles.yaml, `sim` property of kvn_rover.urdf.xacro):
+    each sensor's <pose> is its mount_error, i.e. where it really sits relative to the URDF frame
+    that TF publishes and its data is labelled with; the noise values come from the profile too.
   -->
   <xacro:if value="$(arg sim_gazebo)">
+    <xacro:property name="err" value="${sim['mount_error']}" />
+    <xacro:property name="noise" value="${sim['noise']}" />
+    <xacro:macro name="gaussian" params="stddev bias:=0.0">
+      <noise type="gaussian">
+        <mean>0.0</mean>
+        <stddev>${stddev}</stddev>
+        <bias_mean>${bias}</bias_mean>
+      </noise>
+    </xacro:macro>
 
-    <!-- Skid steering needs the wheels to slip sideways: mu2 (lateral) < mu1 (rolling) -->
-    <gazebo reference="front_left_link">
-      <mu1>1.0</mu1>
-      <mu2>0.4</mu2>
-    </gazebo>
-    <gazebo reference="front_right_link">
-      <mu1>1.0</mu1>
-      <mu2>0.4</mu2>
-    </gazebo>
-    <gazebo reference="back_left_link">
-      <mu1>1.0</mu1>
-      <mu2>0.4</mu2>
-    </gazebo>
-    <gazebo reference="back_right_link">
-      <mu1>1.0</mu1>
-      <mu2>0.4</mu2>
-    </gazebo>
+    <!-- Skid steering needs the wheels to slip sideways: lateral friction < rolling friction.
+         fdir1 (the mu1 direction) is the wheel axle, y of the wheel link, which stays horizontal
+         while the wheel spins: mu1 = lateral, mu2 = rolling. gz-sim (DART) reads fdir1 in the link
+         frame here; "0 0 1" (the cylinder collision's own axis) does not work.
+         Measured in gz-sim (spin in place at 0.5 rad/s, IMU yaw rate):
+           mu1 0.4 / mu2 1.0 / fdir1 0 1 0 -> 0.45 rad/s at every heading
+           no fdir1 (any mu), or isotropic 0.8 -> 0 rad/s: the rover cannot turn in place -->
+    <xacro:macro name="skid_wheel_friction" params="link">
+      <gazebo reference="${link}">
+        <mu1>0.4</mu1>
+        <mu2>1.0</mu2>
+        <fdir1>0 1 0</fdir1>
+      </gazebo>
+    </xacro:macro>
+    <xacro:skid_wheel_friction link="front_left_link" />
+    <xacro:skid_wheel_friction link="front_right_link" />
+    <xacro:skid_wheel_friction link="back_left_link" />
+    <xacro:skid_wheel_friction link="back_right_link" />
 
     <gazebo reference="lidar_attachment_link">
       <sensor name="lidar" type="gpu_lidar">
         <gz_frame_id>lidar_attachment_link</gz_frame_id>
+        <pose>0 0 0 ${err['lidar'][0]} ${err['lidar'][1]} ${err['lidar'][2]}</pose>
         <topic>scan</topic>
         <update_rate>10</update_rate>
         <always_on>true</always_on>
@@ -51,7 +66,7 @@
           <noise>
             <type>gaussian</type>
             <mean>0.0</mean>
-            <stddev>0.01</stddev>
+            <stddev>${noise['lidar_range']}</stddev>
           </noise>
         </lidar>
       </sensor>
@@ -60,19 +75,20 @@
     <gazebo reference="imu_link">
       <sensor name="imu" type="imu">
         <gz_frame_id>imu_link</gz_frame_id>
+        <pose>0 0 0 ${err['imu'][0]} ${err['imu'][1]} ${err['imu'][2]}</pose>
         <topic>imu</topic>
         <update_rate>100</update_rate>
         <always_on>true</always_on>
         <imu>
           <angular_velocity>
-            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.003</stddev></noise></x>
-            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.003</stddev></noise></y>
-            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.003</stddev></noise></z>
+            <x><xacro:gaussian stddev="${noise['gyro']}" bias="${noise['gyro_bias']}" /></x>
+            <y><xacro:gaussian stddev="${noise['gyro']}" bias="${noise['gyro_bias']}" /></y>
+            <z><xacro:gaussian stddev="${noise['gyro']}" bias="${noise['gyro_bias']}" /></z>
           </angular_velocity>
           <linear_acceleration>
-            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.05</stddev></noise></x>
-            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.05</stddev></noise></y>
-            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.05</stddev></noise></z>
+            <x><xacro:gaussian stddev="${noise['accel']}" bias="${noise['accel_bias']}" /></x>
+            <y><xacro:gaussian stddev="${noise['accel']}" bias="${noise['accel_bias']}" /></y>
+            <z><xacro:gaussian stddev="${noise['accel']}" bias="${noise['accel_bias']}" /></z>
           </linear_acceleration>
         </imu>
       </sensor>
@@ -82,6 +98,7 @@
     <gazebo reference="camera_attachment_link">
       <sensor name="oak_rgbd" type="rgbd_camera">
         <gz_frame_id>oak_rgb_camera_frame</gz_frame_id>
+        <pose>0 0 0 ${err['oakd'][0]} ${err['oakd'][1]} ${err['oakd'][2]}</pose>
         <topic>camera</topic>
         <update_rate>10</update_rate>
         <always_on>true</always_on>
@@ -95,6 +112,11 @@
             <near>0.2</near>
             <far>5.0</far>
           </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>${noise['depth']}</stddev>
+          </noise>
         </camera>
       </sensor>
     </gazebo>

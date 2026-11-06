@@ -54,11 +54,19 @@ def generate_launch_description():
         slam_params_file=PathJoinSubstitution([bringup, 'config', 'slam', 'slam_toolbox_ekf.yaml']),
         use_sim_time=use_sim_time)
 
+    # map_saver_server is a lifecycle node: without a manager it stays unconfigured and
+    # /map_saver_server/save_map (scripts/save_map.sh) does not exist
     map_saver_server = Node(
         package='nav2_map_server',
         executable='map_saver_server',
         name='map_saver_server',
         parameters=[{'use_sim_time': use_sim_time}]
+    )
+    map_saver_lifecycle = Node(
+        package='nav2_lifecycle_manager', executable='lifecycle_manager',
+        name='lifecycle_manager_map_saver',
+        parameters=[{'use_sim_time': use_sim_time, 'autostart': True,
+                     'node_names': ['map_saver_server']}]
     )
 
     nav2 = GroupAction([IncludeLaunchDescription(
@@ -85,6 +93,7 @@ def generate_launch_description():
         ekf,
         slam_toolbox,
         map_saver_server,
+        map_saver_lifecycle,
         nav2,
         orchestrator,
     ])

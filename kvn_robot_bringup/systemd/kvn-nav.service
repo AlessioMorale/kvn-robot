@@ -4,7 +4,7 @@ Description=KVN localisation and navigation (nav_stack: fuse, slam_toolbox, Nav2
 Requires=kvn-control.service kvn-sensors.service
 After=kvn-control.service kvn-sensors.service
 # Both command /cmd_vel: starting the calibration stops navigation (and exploration with it)
-Conflicts=kvn-calibration.service kvn-drive.target kvn-calibration.target
+Conflicts=kvn-calibration.service kvn-calibration-supervisor.service kvn-drive.target kvn-calibration.target
 
 [Service]
 Type=simple

@@ -1,9 +1,11 @@
 [Unit]
-Description=KVN mode: odometry calibration (locomotion, sensors, one calibration run)
-Wants=kvn-control.service kvn-sensors.service kvn-calibration.service
+Description=KVN mode: calibration (locomotion, sensors, calibration supervisor)
+# The supervisor waits for /calibration/command (Foxglove publish panel or ros2 topic pub).
+# The older one-shot odometry run is still available on its own: systemctl start kvn-calibration
+Wants=kvn-control.service kvn-sensors.service kvn-calibration-supervisor.service
 After=kvn-control.service kvn-sensors.service
 # One mode at a time. Units outside this mode stop through their own Conflicts= on this target.
 # The WiFi viewers (kvn-foxglove or kvn-foxglove-control, kvn-video) are not part of any mode.
 Conflicts=kvn-drive.target kvn-nav.target kvn-explore.target
-# The run exits when done; the mode then stays as locomotion + sensors until another mode is started.
+# The supervisor keeps running (idle) until another mode is started.
 # No [Install]: never at boot.

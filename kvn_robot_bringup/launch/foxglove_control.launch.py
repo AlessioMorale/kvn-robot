@@ -18,6 +18,9 @@ NOTE: /cmd_vel from Foxglove bypasses teleop_twist_joy_node (kvn_joy_teleop), wh
 between the RC sticks and Nav2: the handset cannot override a Foxglove teleop command, and both
 publish to the controller while either is active.
   /explore/resume   std_msgs/Bool              false pauses exploration, true resumes it.
+  /calibration/command  std_msgs/String        START / NEXT / SKIP / ABORT / SAVE for the
+                                               calibration supervisor (kvn-calibration.target);
+                                               its status is on /calibration/status.
 
 WARNING: foxglove_bridge 3.6.2 (lyrical) does NOT enforce client_topic_whitelist. The parameter is
 set, but a client can still advertise and publish ANY topic (checked: /forbidden got through). The
@@ -38,6 +41,7 @@ CONTROL_TOPICS = [
     "^/cmd_vel$",
     "^/goal_pose$",
     "^/explore/resume$",
+    "^/calibration/command$",
 ]
 
 

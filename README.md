@@ -36,8 +36,9 @@ This runs the gz server with no GUI (`--headless-rendering`) and uses the Turtle
 |---|---|---|
 | `gui` | `false` | Also start the gz GUI client (needs a display). |
 | `use_nav2` | `true` | Set `false` to run only the simulation, fuse and slam_toolbox. |
-| `world` | TurtleBot3 World | `kvn_turtlebot3_world.world` is a walled area with a 3×3 grid of pillars. For the plain 10×10 m arena with boxes, pass `world:=$(ros2 pkg prefix kvn_robot_description)/share/kvn_robot_description/worlds/kvn_robot.world x:=0.0 y:=0.0`. |
+| `world` | TurtleBot3 World | `kvn_turtlebot3_world.world` is a walled area with a 3×3 grid of pillars. For the plain 10×10 m arena with boxes, pass `world:=$(ros2 pkg prefix kvn_robot_description)/share/kvn_robot_description/worlds/kvn_robot.world x:=-3.5 y:=0.0`. |
 | `x`, `y` | `-2.0`, `-0.5` | Spawn position in the world. |
+| `sim_profile` | `ideal` | `ideal`: noise-free sensors exactly on their URDF frames. `real`: sensors mounted off their URDF frames (TF stays nominal, so the rover is miscalibrated), tyres 3 % larger than `controllers.yaml` assumes, and sensor noise and bias. The values are in `kvn_robot_description/config/sim_profiles.yaml`. |
 
 To run only the simulated rover, without fuse, SLAM or Nav2, use `ros2 launch kvn_robot_bringup sim_headless.launch.py publish_odom_tf:=true`.
 
@@ -145,6 +146,7 @@ Run `robot` alone, or its layers separately; do not start `robot` together with 
 | `kvn_joy_teleop`, `kvn_status`, `kvn_orchestrator` | Teleoperation with operator override, health reporting, and behaviour-tree command modes, safety gating, assisted teleop, return home and signalling. |
 | `kvn_display` | Robot status on a small I2C or SPI display (any u8g2 driver). |
 | `kvn_video_streamer` | On-demand video to Foxglove, with optional WebRTC. |
+| `kvn_odom_calibration`, `kvn_calibration_supervisor` | Wheel odometry calibration, and a topic-driven calibration session (odometry, IMU, lidar and camera extrinsics) that can be stepped through from Foxglove. |
 
 ## Status
 

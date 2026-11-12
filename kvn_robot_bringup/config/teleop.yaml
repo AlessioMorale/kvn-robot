@@ -40,8 +40,10 @@ crsf_joy_node:
       threshold: [0.5,  0.75, 0.5,  0.5]
       invert:    [false, false, false, false]
     # Sticks centered, switches off: robot stops on RC link loss. The mode switch fails safe to
-    # the middle (assisted teleop with centred sticks = standing still, battery return allowed).
-    failsafe_axes: [0.0, 0.0, 0.0, 0.0, 0.0]
+    # low = teleop: no autonomy without a working link (also no battery return home). This
+    # matches the handheld (remote_controller mapping.toml), which holds the mode switch at
+    # teleop whenever it is not armed.
+    failsafe_axes: [0.0, 0.0, 0.0, 0.0, -1.0]
     failsafe_buttons: [0, 0, 0, 0]
     telemetry_battery_enabled: true
     battery_topic: /battery_state

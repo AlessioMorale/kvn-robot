@@ -36,6 +36,7 @@
   <exec_depend>foxglove_bridge</exec_depend>
   <exec_depend>kvn_video_streamer</exec_depend>
   <exec_depend>kvn_ekf</exec_depend>
+  <exec_depend>kvn_orbslam3</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
   <exec_depend>nav2_map_server</exec_depend>

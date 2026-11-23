@@ -1,0 +1,25 @@
+# OAK-D-Lite driver (depthai_ros_driver) tuned for ORB-SLAM3 RGB-D + IMU on Raspberry Pi 5.
+# Per orbslam3.md: hard-cap resolution at VGA (640x400), framerate at 15 Hz, disable neural
+# networks and subpixel disparity, and align depth to the RGB frame for RGB-D tracking.
+/**:
+  ros__parameters:
+    driver:
+      i_enable_ir: true
+      i_pipeline_auto_calibration_mode: ''
+    pipeline_gen:
+      i_pipeline_type: RGBD
+      i_enable_rgbd: true
+      i_nn_type: none
+    rgb:
+      i_resolution: '400P'
+      i_fps: 15.0
+    left:
+      i_resolution: '400P'
+      i_fps: 15.0
+    right:
+      i_resolution: '400P'
+      i_fps: 15.0
+    stereo:
+      i_fps: 15.0
+      i_subpixel: false
+      i_align_depth: true

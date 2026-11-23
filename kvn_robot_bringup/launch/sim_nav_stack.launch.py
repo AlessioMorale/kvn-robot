@@ -40,6 +40,11 @@ def generate_launch_description():
     use_orchestrator_arg = DeclareLaunchArgument(
         'use_orchestrator', default_value=LaunchConfiguration('require_autonomy_permit'),
         description='Start the orchestrator (default: same as require_autonomy_permit; needs /joy)')
+    slam_backend_arg = DeclareLaunchArgument(
+        'slam_backend',
+        default_value='slam_toolbox',
+        choices=['slam_toolbox', 'orbslam3'],
+        description='SLAM backend: slam_toolbox (2D lidar) or orbslam3 (RGB-D + IMU)')
 
     sim = include(
         'sim_headless.launch.py', gui=LaunchConfiguration('gui'), publish_odom_tf='false',
@@ -48,7 +53,8 @@ def generate_launch_description():
     stack = include(
         'nav_stack.launch.py',
         use_sim_time='true', use_nav2=LaunchConfiguration('use_nav2'),
-        use_orchestrator=LaunchConfiguration('use_orchestrator'), require_robot_status='false')
+        use_orchestrator=LaunchConfiguration('use_orchestrator'), require_robot_status='false',
+        slam_backend=LaunchConfiguration('slam_backend'))
     require_permit = ParameterValue(LaunchConfiguration('require_autonomy_permit'), value_type=bool)
     teleop = Node(
         package='kvn_joy_teleop', executable='teleop_override_node', name='teleop_twist_joy_node',
@@ -59,4 +65,4 @@ def generate_launch_description():
 
     return LaunchDescription([
         gui_arg, world_arg, x_arg, y_arg, use_nav2_arg, sim_profile_arg, require_permit_arg, use_orchestrator_arg,
-        sim, stack, teleop])
+        slam_backend_arg, sim, stack, teleop])

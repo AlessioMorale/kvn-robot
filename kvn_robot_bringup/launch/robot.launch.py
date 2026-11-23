@@ -37,6 +37,11 @@ def generate_launch_description():
     use_orchestrator_arg = DeclareLaunchArgument(
         'use_orchestrator', default_value='true',
         description='Start the behaviour-tree orchestrator (requires Nav2)')
+    slam_backend_arg = DeclareLaunchArgument(
+        'slam_backend',
+        default_value='slam_toolbox',
+        choices=['slam_toolbox', 'orbslam3'],
+        description='SLAM backend: slam_toolbox (2D lidar) or orbslam3 (RGB-D + IMU)')
 
     return LaunchDescription([
         use_mock_hardware_arg,
@@ -45,13 +50,16 @@ def generate_launch_description():
         wled_port_arg,
         use_display_arg,
         use_orchestrator_arg,
+        slam_backend_arg,
         include('robot_base.launch.py',
                 use_mock_hardware=LaunchConfiguration('use_mock_hardware'),
                 use_wled=LaunchConfiguration('use_wled'),
                 wled_port=LaunchConfiguration('wled_port'),
                 use_display=LaunchConfiguration('use_display')),
-        include('robot_sensors.launch.py'),
+        include('robot_sensors.launch.py',
+                slam_backend=LaunchConfiguration('slam_backend')),
         include('nav_stack.launch.py',
                 use_nav2=LaunchConfiguration('use_nav2'),
-                use_orchestrator=LaunchConfiguration('use_orchestrator')),
+                use_orchestrator=LaunchConfiguration('use_orchestrator'),
+                slam_backend=LaunchConfiguration('slam_backend')),
     ])

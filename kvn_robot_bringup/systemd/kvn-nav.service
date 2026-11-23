@@ -12,8 +12,12 @@ User=alessio
 EnvironmentFile=/etc/kvn/kvn-ros.env
 # Below the control path, above the WiFi extras
 CPUWeight=200
+# Optional Pi 5 guardrails when KVN_SLAM_BACKEND=orbslam3 (leave >=1 core for kvn-control):
+#CPUQuota=280%
+#MemoryHigh=2.5G
+#MemoryMax=3.5G
 Restart=on-failure
 RestartSec=3
-ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup nav_stack.launch.py'
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup nav_stack.launch.py slam_backend:=${KVN_SLAM_BACKEND:-slam_toolbox} orbslam3_vocab_file:=${KVN_ORBSLAM3_VOCAB:-/opt/orbslam3/Vocabulary/ORBvoc.txt}'
 
 # No [Install]: started by kvn-nav.target / kvn-explore.target (or by hand).

@@ -13,6 +13,6 @@ EnvironmentFile=/etc/kvn/kvn-ros.env
 CPUWeight=200
 Restart=on-failure
 RestartSec=3
-ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup robot_sensors.launch.py'
+ExecStart=/bin/bash -c 'source /opt/ros/lyrical/setup.bash && source ${KVN_WS}/install/setup.bash && exec ros2 launch kvn_robot_bringup robot_sensors.launch.py slam_backend:=${KVN_SLAM_BACKEND:-slam_toolbox}'
 
 # No [Install]: started by the kvn-*.target modes (or by hand).

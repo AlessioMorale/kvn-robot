@@ -7,7 +7,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import EqualsSubstitution, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
@@ -30,7 +30,21 @@ def generate_launch_description():
     require_robot_status_arg = DeclareLaunchArgument(
         'require_robot_status', default_value='true',
         description='Orchestrator blocks autonomy on /robot_status faults (false in simulation)')
+    slam_backend_arg = DeclareLaunchArgument(
+        'slam_backend',
+        default_value='slam_toolbox',
+        choices=['slam_toolbox', 'orbslam3'],
+        description='SLAM backend: slam_toolbox (2D lidar) or orbslam3 (RGB-D + IMU)')
+    orbslam3_vocab_arg = DeclareLaunchArgument(
+        'orbslam3_vocab_file',
+        default_value='/opt/orbslam3/Vocabulary/ORBvoc.txt',
+        description='Path to ORB-SLAM3 vocabulary file when slam_backend:=orbslam3')
+    orbslam3_settings_arg = DeclareLaunchArgument(
+        'orbslam3_settings_file',
+        default_value='',
+        description='Optional ORB-SLAM3 YAML override; empty auto-selects Pi 5 or sim config')
     use_sim_time = LaunchConfiguration('use_sim_time')
+    slam_backend = LaunchConfiguration('slam_backend')
 
     # Battery limits for the orchestrator's return-to-home from robot.yaml
     orchestrator_config = robot_config.merged_params_file(
@@ -47,12 +61,27 @@ def generate_launch_description():
     # odom -> base_link: wheel odometry (/odom) + IMU (/imu) fused by fuse, published on /odom_ekf
     ekf = include('kvn_ekf', 'launch', 'ekf.launch.py', use_sim_time=use_sim_time)
 
-    # map -> odom: slam_toolbox online async (pose graph, loop closure, Ceres solver).
-    # slam_toolbox is a lifecycle node: its own launch file configures and activates it.
-    slam_toolbox = include(
-        'slam_toolbox', 'launch', 'online_async_launch.py',
-        slam_params_file=PathJoinSubstitution([bringup, 'config', 'slam', 'slam_toolbox_ekf.yaml']),
-        use_sim_time=use_sim_time)
+    # map -> odom: slam_toolbox online async (default) OR ORB-SLAM3 (RGB-D + IMU).
+    slam_toolbox = GroupAction([IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('slam_toolbox'), 'launch', 'online_async_launch.py'])),
+        launch_arguments={
+            'slam_params_file': PathJoinSubstitution([bringup, 'config', 'slam', 'slam_toolbox_ekf.yaml']),
+            'use_sim_time': use_sim_time,
+        }.items())],
+        scoped=True,
+        condition=IfCondition(EqualsSubstitution(slam_backend, 'slam_toolbox')))
+
+    orbslam3 = GroupAction([IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('kvn_orbslam3'), 'launch', 'orbslam3.launch.py'])),
+        launch_arguments={
+            'use_sim_time': use_sim_time,
+            'vocab_file': LaunchConfiguration('orbslam3_vocab_file'),
+            'settings_file': LaunchConfiguration('orbslam3_settings_file'),
+        }.items())],
+        scoped=True,
+        condition=IfCondition(EqualsSubstitution(slam_backend, 'orbslam3')))
 
     # map_saver_server is a lifecycle node: without a manager it stays unconfigured and
     # /map_saver_server/save_map (scripts/save_map.sh) does not exist
@@ -90,8 +119,12 @@ def generate_launch_description():
         use_sim_time_arg,
         use_orchestrator_arg,
         require_robot_status_arg,
+        slam_backend_arg,
+        orbslam3_vocab_arg,
+        orbslam3_settings_arg,
         ekf,
         slam_toolbox,
+        orbslam3,
         map_saver_server,
         map_saver_lifecycle,
         nav2,

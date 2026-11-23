@@ -1,0 +1,30 @@
+orbslam3_tf_bridge:
+  ros__parameters:
+    pose_topic: /orbslam3/camera_pose
+    base_pose_topic: /orbslam3/base_pose
+    status_topic: /orbslam3/tracking_status
+    map_frame: map
+    odom_frame: odom
+    base_frame: base_link
+    sensor_frame: oak_rgb_camera_optical_frame
+    project_to_2d: true
+    pose_timeout_s: 1.5
+    transform_publish_period: 0.05
+
+orbslam3_occupancy_mapper:
+  ros__parameters:
+    scan_topic: /scan
+    map_topic: /map
+    map_metadata_topic: /map_metadata
+    map_frame: map
+    resolution: 0.05
+    width_m: 20.0
+    height_m: 20.0
+    origin_x: -10.0
+    origin_y: -10.0
+    min_range: 0.15
+    max_range: 8.0
+    scan_stride: 2
+    min_travel_distance: 0.10
+    min_travel_heading: 0.10
+    map_update_interval: 2.0

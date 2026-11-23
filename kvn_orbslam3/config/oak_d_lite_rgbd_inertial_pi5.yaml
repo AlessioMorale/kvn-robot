@@ -1,0 +1,62 @@
+%YAML:1.0
+
+# ORB-SLAM3 RGB-D + Inertial settings for KVN Rover (OAK-D-Lite + ISM330DHCX on Raspberry Pi 5).
+# Hard-constrained for Cortex-A76 per orbslam3.md:
+#   - Resolution <= 640x480 (VGA)
+#   - Framerate <= 15-30 Hz
+#   - IMU 200-400 Hz (208 Hz ISM330DHCX)
+#   - ORBextractor.nFeatures 600-800, nLevels 4-6, headless (Viewer.UseViewer: 0)
+
+File.version: "1.0"
+Camera.type: "PinHole"
+
+# Nominal OAK-D-Lite VGA intrinsics (calibrate per unit with camera_calibration).
+Camera1.fx: 455.0
+Camera1.fy: 455.0
+Camera1.cx: 320.0
+Camera1.cy: 200.0
+
+Camera1.k1: 0.0
+Camera1.k2: 0.0
+Camera1.p1: 0.0
+Camera1.p2: 0.0
+
+Camera.width: 640
+Camera.height: 400
+Camera.fps: 15
+Camera.RGB: 1
+
+Stereo.ThDepth: 40.0
+Stereo.b: 0.075
+RGBD.DepthMapFactor: 1000.0
+
+# Camera-to-IMU extrinsic T_b_c1 (body = imu_link, c1 = oak_rgb_camera_optical_frame)
+# Derived from kvn_robot_description/config/robot_config.yaml:
+#   imu_link = (-0.05, -0.03, 0.025), camera_attachment_link = (0.074, 0.0, 0.10)
+#   optical frame rpy = (-pi/2, 0, -pi/2)
+IMU.T_b_c1: !!opencv-matrix
+  rows: 4
+  cols: 4
+  dt: f
+  data: [0.0,  0.0, 1.0, 0.124,
+        -1.0,  0.0, 0.0, 0.030,
+         0.0, -1.0, 0.0, 0.075,
+         0.0,  0.0, 0.0, 1.0]
+
+# ISM330DHCX SPI0 IMU (ism330dhcx.yaml: odr_hz=208.0)
+IMU.Frequency: 208.0
+IMU.NoiseGyro: 0.003
+IMU.NoiseAcc: 0.015
+IMU.GyroWalk: 0.0001
+IMU.AccWalk: 0.001
+
+# Cortex-A76 tuned ORB extractor & Local BA window
+ORBextractor.nFeatures: 700
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 6
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+LocalMapping.LocalWindowSize: 8
+
+# Headless on Raspberry Pi 5
+Viewer.UseViewer: 0

@@ -1,0 +1,53 @@
+%YAML:1.0
+
+# ORB-SLAM3 RGB-D + Inertial settings for Gazebo simulation (gz_sensors.xacro).
+
+File.version: "1.0"
+Camera.type: "PinHole"
+
+# Matches gz_sensors.xacro: 320x240, horizontal_fov 1.274 rad -> fx = fy = 160 / tan(1.274/2) = 216.25
+Camera1.fx: 216.25
+Camera1.fy: 216.25
+Camera1.cx: 160.0
+Camera1.cy: 120.0
+
+Camera1.k1: 0.0
+Camera1.k2: 0.0
+Camera1.p1: 0.0
+Camera1.p2: 0.0
+
+Camera.width: 320
+Camera.height: 240
+Camera.fps: 10
+Camera.RGB: 1
+
+Stereo.ThDepth: 40.0
+Stereo.b: 0.075
+# gz-sim depth_image is float32 meters
+RGBD.DepthMapFactor: 1.0
+
+# Same URDF extrinsic T_b_c1 (imu_link -> oak_rgb_camera_optical_frame)
+IMU.T_b_c1: !!opencv-matrix
+  rows: 4
+  cols: 4
+  dt: f
+  data: [0.0,  0.0, 1.0, 0.124,
+        -1.0,  0.0, 0.0, 0.030,
+         0.0, -1.0, 0.0, 0.075,
+         0.0,  0.0, 0.0, 1.0]
+
+# gz_sensors.xacro IMU update_rate: 100 Hz
+IMU.Frequency: 100.0
+IMU.NoiseGyro: 0.003
+IMU.NoiseAcc: 0.05
+IMU.GyroWalk: 0.0001
+IMU.AccWalk: 0.001
+
+ORBextractor.nFeatures: 700
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 6
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+LocalMapping.LocalWindowSize: 8
+
+Viewer.UseViewer: 0
